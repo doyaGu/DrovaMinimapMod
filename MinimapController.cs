@@ -139,7 +139,7 @@ namespace DrovaMinimapMod
                 Region region = _activeRegions[i];
                 if (region.IsCaveRegion())
                 {
-                    return region.GetRegionName();
+                    return RegionLabelResolver.Resolve(region);
                 }
             }
 
@@ -148,7 +148,7 @@ namespace DrovaMinimapMod
                 Region region = _activeRegions[i];
                 if (region != Region.Overworld_Or_Cave)
                 {
-                    return region.GetRegionName();
+                    return RegionLabelResolver.Resolve(region);
                 }
             }
 
