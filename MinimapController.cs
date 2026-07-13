@@ -55,8 +55,24 @@ namespace DrovaMinimapMod
                 return;
             }
 
+            if (!settings.Enabled)
+            {
+                HideView();
+                return;
+            }
+
             GUIGameHandler? guiHandler = ProviderAccess.GetGUIGameHandler();
             if (guiHandler == null || guiHandler.GUIRoot == null)
+            {
+                HideView();
+                return;
+            }
+
+            bool guiSuppressed = guiHandler.GUIIsHidden
+                                 || guiHandler.HUDIsHidden
+                                 || guiHandler.IsPlayerGameMenuWindowVisible()
+                                 || guiHandler.HasOpenModalWindows();
+            if (guiSuppressed)
             {
                 HideView();
                 return;
@@ -90,15 +106,9 @@ namespace DrovaMinimapMod
                 return;
             }
 
-            bool guiSuppressed = guiHandler.GUIIsHidden
-                                 || guiHandler.HUDIsHidden
-                                 || guiHandler.IsPlayerGameMenuWindowVisible()
-                                 || guiHandler.HasOpenModalWindows();
-
             Vector2 lookDirection = _player.GetLookModule()?.CurrentLookDir ?? Vector2.up;
             _view.UpdateMap(mapData, playerWorldPosition, lookDirection, GetRegionLabel(), settings);
-
-            _view.SetVisible(settings.Enabled && !guiSuppressed);
+            _view.SetVisible(true);
         }
 
         public void Dispose()

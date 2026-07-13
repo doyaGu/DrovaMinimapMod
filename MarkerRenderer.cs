@@ -9,10 +9,12 @@ namespace DrovaMinimapMod
 {
     internal sealed class MarkerRenderer
     {
+        private const float ViewportPadding = 18f;
+
         private static Sprite? _fallbackIconSprite;
         private readonly RectTransform _markerLayer;
         private readonly Dictionary<uint, Image> _icons = [];
-        private readonly HashSet<uint> _visibleMarkerIds = [];
+        private readonly HashSet<uint> _knownMarkerIds = [];
 
         public MarkerRenderer(RectTransform markerLayer)
         {
@@ -22,10 +24,12 @@ namespace DrovaMinimapMod
         public void Refresh(
             MapData mapData,
             Vector2 contentSize,
+            Vector2 contentPosition,
+            float viewportSize,
             MinimapSettings settings,
             MapCoordinateTransform coordinateTransform)
         {
-            _visibleMarkerIds.Clear();
+            _knownMarkerIds.Clear();
 
             for (int i = 0; i < mapData.Markers.Count; i++)
             {
@@ -36,27 +40,39 @@ namespace DrovaMinimapMod
                 }
 
                 uint markerId = marker.MarkerId;
-                _visibleMarkerIds.Add(markerId);
+                _knownMarkerIds.Add(markerId);
+                Vector2 normalizedPosition = coordinateTransform.WorldToVisual(mapData, marker.WorldPos);
+                Vector2 markerPosition = new(
+                    normalizedPosition.x * contentSize.x,
+                    normalizedPosition.y * contentSize.y);
+                if (!IsNearViewport(markerPosition, contentPosition, viewportSize))
+                {
+                    if (_icons.TryGetValue(markerId, out Image? offscreenIcon) && offscreenIcon != null)
+                    {
+                        offscreenIcon.gameObject.SetActive(false);
+                    }
+
+                    continue;
+                }
+
                 if (!_icons.TryGetValue(markerId, out Image? icon) || icon == null)
                 {
                     icon = CreateIcon(marker);
                     _icons[markerId] = icon;
                 }
 
-                Vector2 normalizedPosition = coordinateTransform.WorldToVisual(mapData, marker.WorldPos);
+                ApplyMarkerAppearance(icon, marker);
                 RectTransform iconRect = icon.rectTransform;
                 iconRect.anchorMin = Vector2.zero;
                 iconRect.anchorMax = Vector2.zero;
                 iconRect.pivot = new Vector2(0.5f, 0.5f);
-                iconRect.anchoredPosition = new Vector2(
-                    normalizedPosition.x * contentSize.x,
-                    normalizedPosition.y * contentSize.y);
+                iconRect.anchoredPosition = markerPosition;
                 icon.gameObject.SetActive(true);
             }
 
             foreach (KeyValuePair<uint, Image> pair in _icons.ToArray())
             {
-                if (_visibleMarkerIds.Contains(pair.Key))
+                if (_knownMarkerIds.Contains(pair.Key))
                 {
                     continue;
                 }
@@ -81,7 +97,7 @@ namespace DrovaMinimapMod
             }
 
             _icons.Clear();
-            _visibleMarkerIds.Clear();
+            _knownMarkerIds.Clear();
         }
 
         public static void ReleaseSharedResources()
@@ -103,13 +119,26 @@ namespace DrovaMinimapMod
             rectTransform.SetParent(_markerLayer, false);
 
             Image image = gameObject.AddComponent<Image>();
-            image.sprite = marker.MarkerType?.GuiMarkerPrefab?.IconNormalSprite ?? GetFallbackIconSprite();
-            image.color = marker.MarkerType?.GuiMarkerPrefab?.IconNormalSprite == null
-                ? new Color(0.5f, 0.9f, 1f, 1f)
-                : Color.white;
+            ApplyMarkerAppearance(image, marker);
             image.raycastTarget = false;
             rectTransform.sizeDelta = new Vector2(18f, 18f);
             return image;
+        }
+
+        private static bool IsNearViewport(Vector2 markerPosition, Vector2 contentPosition, float viewportSize)
+        {
+            Vector2 viewportPosition = contentPosition + markerPosition;
+            return viewportPosition.x >= -ViewportPadding
+                && viewportPosition.x <= viewportSize + ViewportPadding
+                && viewportPosition.y >= -ViewportPadding
+                && viewportPosition.y <= viewportSize + ViewportPadding;
+        }
+
+        private static void ApplyMarkerAppearance(Image image, MapMarker marker)
+        {
+            Sprite? markerSprite = marker.MarkerType?.GuiMarkerPrefab?.IconNormalSprite;
+            image.sprite = markerSprite ?? GetFallbackIconSprite();
+            image.color = markerSprite == null ? new Color(0.5f, 0.9f, 1f, 1f) : Color.white;
         }
 
         private static bool ShouldShow(MapMarker marker, MinimapSettings settings)

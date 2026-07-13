@@ -33,6 +33,8 @@ namespace DrovaMinimapMod
 
         private float _nextMarkerRefreshTime;
         private Vector2 _contentSize;
+        private int _appliedSize = -1;
+        private float _appliedOpacity = -1f;
 
         public MinimapView(Transform guiRoot)
         {
@@ -86,7 +88,7 @@ namespace DrovaMinimapMod
             _regionLabel.color = new Color(0.95f, 0.95f, 0.92f, 1f);
             _regionLabel.raycastTarget = false;
 
-            Layout(240, 0.85f);
+            ApplyLayout(240, 0.85f);
             SetVisible(false);
         }
 
@@ -102,16 +104,17 @@ namespace DrovaMinimapMod
             string regionLabel,
             MinimapSettings settings)
         {
-            Layout(settings.Size, settings.Opacity);
+            ApplyLayout(settings.Size, settings.Opacity);
             float viewportSize = settings.Size - 4f;
             bool hasMapTexture = _mapTextureProvider.TryResolve(mapData);
             _coordinateTransform.UpdateFromNativeMap(mapData, _mapTextureProvider);
             _contentSize = CalculateContentSize(viewportSize, settings.Zoom, _mapTextureProvider.AspectRatio);
             _mapContent.sizeDelta = _contentSize;
             _markerLayer.sizeDelta = _contentSize;
-            _mapContent.anchoredPosition = GetMapContentPosition(
+            Vector2 contentPosition = GetMapContentPosition(
                 _coordinateTransform.PlayerWorldToVisual(mapData, playerWorldPosition),
                 viewportSize);
+            _mapContent.anchoredPosition = contentPosition;
             ApplyMapResource(hasMapTexture);
 
             if (lookDirection.sqrMagnitude > 0.0001f)
@@ -127,7 +130,13 @@ namespace DrovaMinimapMod
 
             if (Time.unscaledTime >= _nextMarkerRefreshTime)
             {
-                _markerRenderer.Refresh(mapData, _contentSize, settings, _coordinateTransform);
+                _markerRenderer.Refresh(
+                    mapData,
+                    _contentSize,
+                    contentPosition,
+                    viewportSize,
+                    settings,
+                    _coordinateTransform);
                 _nextMarkerRefreshTime = Time.unscaledTime + 0.25f;
             }
         }
@@ -157,6 +166,18 @@ namespace DrovaMinimapMod
             _solidSprite = null;
             _arrowSprite = null;
             _arrowTexture = null;
+        }
+
+        private void ApplyLayout(int size, float opacity)
+        {
+            if (_appliedSize == size && Mathf.Approximately(_appliedOpacity, opacity))
+            {
+                return;
+            }
+
+            _appliedSize = size;
+            _appliedOpacity = opacity;
+            Layout(size, opacity);
         }
 
         private void Layout(int size, float opacity)
