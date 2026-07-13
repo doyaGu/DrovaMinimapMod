@@ -50,7 +50,7 @@ namespace DrovaMinimapMod
 
             _nativeMap = guiMap;
 
-            if (TryReadLargestGraphic(guiMap))
+            if (TryReadMapGraphic(guiMap, mapData.Definition))
             {
                 return true;
             }
@@ -109,6 +109,28 @@ namespace DrovaMinimapMod
             return null;
         }
 
+        private bool TryReadMapGraphic(GUI_Map guiMap, MapDefinition definition)
+        {
+            string expectedContainerName = GetExpectedContainerName(definition);
+            Transform? expectedContainer = guiMap.transform.FindChild($"Panel/{expectedContainerName}");
+            if (expectedContainer != null)
+            {
+                Image? image = expectedContainer.FindChild("Image")?.GetComponent<Image>();
+                if (image != null && image.sprite != null)
+                {
+                    return TryUseImage(image);
+                }
+
+                RawImage? rawImage = expectedContainer.FindChild("Image")?.GetComponent<RawImage>();
+                if (rawImage != null && rawImage.texture != null)
+                {
+                    return TryUseRawImage(rawImage);
+                }
+            }
+
+            return TryReadLargestGraphic(guiMap);
+        }
+
         private bool TryReadLargestGraphic(GUI_Map guiMap)
         {
             Image? bestImage = null;
@@ -147,11 +169,7 @@ namespace DrovaMinimapMod
 
             if (bestRawImage != null && bestRawImageArea > bestImageArea)
             {
-                _nativeGraphic = bestRawImage.rectTransform;
-                Texture = bestRawImage.texture;
-                Color = bestRawImage.color;
-                AspectRatio = GetAspectRatio(bestRawImage.rectTransform, Texture);
-                return true;
+                return TryUseRawImage(bestRawImage);
             }
 
             if (bestImage == null)
@@ -159,11 +177,42 @@ namespace DrovaMinimapMod
                 return false;
             }
 
-            Sprite = bestImage.sprite;
-            _nativeGraphic = bestImage.rectTransform;
-            Color = bestImage.color;
-            AspectRatio = GetAspectRatio(bestImage.rectTransform, Sprite.texture);
+            return TryUseImage(bestImage);
+        }
+
+        private bool TryUseImage(Image image)
+        {
+            if (image.sprite == null)
+            {
+                return false;
+            }
+
+            Sprite = image.sprite;
+            _nativeGraphic = image.rectTransform;
+            Color = image.color;
+            AspectRatio = GetAspectRatio(image.rectTransform, Sprite.texture);
             return true;
+        }
+
+        private bool TryUseRawImage(RawImage rawImage)
+        {
+            if (rawImage.texture == null)
+            {
+                return false;
+            }
+
+            _nativeGraphic = rawImage.rectTransform;
+            Texture = rawImage.texture;
+            Color = rawImage.color;
+            AspectRatio = GetAspectRatio(rawImage.rectTransform, Texture);
+            return true;
+        }
+
+        private static string GetExpectedContainerName(MapDefinition definition)
+        {
+            return definition.name.StartsWith("MapDefinition_", StringComparison.Ordinal)
+                ? "Map_" + definition.name["MapDefinition_".Length..]
+                : definition.name;
         }
 
         private static float GetAspectRatio(RectTransform rectTransform, Texture texture)

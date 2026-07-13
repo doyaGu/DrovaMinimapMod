@@ -2,8 +2,6 @@ using Drova_Modding_API.Access;
 using Drova_Modding_API.UI.Builder;
 using Il2Cpp;
 using Il2CppCustomFramework.Localization;
-using MelonLoader;
-using System.Text.Json;
 using static Il2CppCustomFramework.Localization.LocalizationDB;
 using UnityEngine;
 
@@ -16,23 +14,32 @@ namespace DrovaMinimapMod
         private const string SizeKey = "DrovaMinimap_Size";
         private const string ZoomKey = "DrovaMinimap_Zoom";
         private const string OpacityKey = "DrovaMinimap_Opacity";
-        private const string ShowPlayerMarkersKey = "DrovaMinimap_ShowPlayerMarkers";
+        // Keep the established key so existing player configuration continues to work.
+        private const string ShowStandardMarkersKey = "DrovaMinimap_ShowPlayerMarkers";
         private const string ShowNpcMarkersKey = "DrovaMinimap_ShowNpcMarkers";
 
         private static readonly HashSet<ELanguage> RegisteredLocalizationLanguages = [];
-        private static readonly string StoragePath = Path.Combine(
-            AppContext.BaseDirectory,
-            "UserData",
-            "DrovaMinimapMod.json");
-
-        private bool _persistentValuesLoaded;
+        private bool _gameConfigLoaded;
 
         public bool Enabled { get; private set; } = true;
         public int Size { get; private set; } = 240;
         public float Zoom { get; private set; } = 2f;
         public float Opacity { get; private set; } = 0.85f;
-        public bool ShowPlayerMarkers { get; private set; } = true;
+        public bool ShowStandardMarkers { get; private set; } = true;
         public bool ShowNpcMarkers { get; private set; } = true;
+
+        public void TryLoadFromGameConfig()
+        {
+            if (_gameConfigLoaded
+                || ProviderAccess.GetDrovaResourceProvider() == null
+                || ProviderAccess.GetConfigGameHandler() == null)
+            {
+                return;
+            }
+
+            ReloadFromConfig();
+            _gameConfigLoaded = true;
+        }
 
         public void BuildOptions()
         {
@@ -50,120 +57,42 @@ namespace DrovaMinimapMod
                 .CreateSlider(L("Size"), SizeKey, 160, 420, Size)
                 .CreateSlider(L("Zoom"), ZoomKey, 1f, 4f, Zoom, false)
                 .CreateSlider(L("Opacity"), OpacityKey, 40, 100, Mathf.RoundToInt(Opacity * 100f))
-                .CreateSwitch(L("ShowPlayerMarkers"), L("On"), L("Off"), ShowPlayerMarkersKey, ShowPlayerMarkers)
+                .CreateSwitch(L("ShowPlayerMarkers"), L("On"), L("Off"), ShowStandardMarkersKey, ShowStandardMarkers)
                 .CreateSwitch(L("ShowNpcMarkers"), L("On"), L("Off"), ShowNpcMarkersKey, ShowNpcMarkers)
                 .Build();
         }
 
         public void ReloadFromConfig()
         {
-            bool changed = false;
             if (ConfigAccessor.TryGetConfigValue<bool>(EnabledKey, out bool enabled))
             {
                 Enabled = enabled;
-                changed = true;
             }
 
             if (ConfigAccessor.TryGetConfigValue<int>(SizeKey, out int size))
             {
                 Size = Mathf.Clamp(size, 160, 420);
-                changed = true;
             }
 
             if (ConfigAccessor.TryGetConfigValue<float>(ZoomKey, out float zoom))
             {
                 Zoom = Mathf.Clamp(zoom, 1f, 4f);
-                changed = true;
             }
 
             if (ConfigAccessor.TryGetConfigValue<int>(OpacityKey, out int opacity))
             {
                 Opacity = Mathf.Clamp(opacity, 40, 100) / 100f;
-                changed = true;
             }
 
-            if (ConfigAccessor.TryGetConfigValue<bool>(ShowPlayerMarkersKey, out bool showPlayerMarkers))
+            if (ConfigAccessor.TryGetConfigValue<bool>(ShowStandardMarkersKey, out bool showStandardMarkers))
             {
-                ShowPlayerMarkers = showPlayerMarkers;
-                changed = true;
+                ShowStandardMarkers = showStandardMarkers;
             }
 
             if (ConfigAccessor.TryGetConfigValue<bool>(ShowNpcMarkersKey, out bool showNpcMarkers))
             {
                 ShowNpcMarkers = showNpcMarkers;
-                changed = true;
             }
-
-            if (changed)
-            {
-                SavePersistentValues();
-            }
-        }
-
-        public void LoadPersistentValues()
-        {
-            if (_persistentValuesLoaded)
-            {
-                return;
-            }
-
-            _persistentValuesLoaded = true;
-            try
-            {
-                if (!File.Exists(StoragePath))
-                {
-                    return;
-                }
-
-                StoredValues? values = JsonSerializer.Deserialize<StoredValues>(File.ReadAllText(StoragePath));
-                if (values == null)
-                {
-                    return;
-                }
-
-                Enabled = values.Enabled;
-                Size = Mathf.Clamp(values.Size, 160, 420);
-                Zoom = Mathf.Clamp(values.Zoom, 1f, 4f);
-                Opacity = Mathf.Clamp(values.Opacity, 0.4f, 1f);
-                ShowPlayerMarkers = values.ShowPlayerMarkers;
-                ShowNpcMarkers = values.ShowNpcMarkers;
-            }
-            catch (Exception exception)
-            {
-                MelonLogger.Warning($"Unable to load minimap settings: {exception.Message}");
-            }
-        }
-
-        private void SavePersistentValues()
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(StoragePath)!);
-                StoredValues values = new()
-                {
-                    Enabled = Enabled,
-                    Size = Size,
-                    Zoom = Zoom,
-                    Opacity = Opacity,
-                    ShowPlayerMarkers = ShowPlayerMarkers,
-                    ShowNpcMarkers = ShowNpcMarkers
-                };
-                File.WriteAllText(StoragePath, JsonSerializer.Serialize(values, new JsonSerializerOptions { WriteIndented = true }));
-            }
-            catch (Exception exception)
-            {
-                MelonLogger.Warning($"Unable to save minimap settings: {exception.Message}");
-            }
-        }
-
-        private sealed class StoredValues
-        {
-            public bool Enabled { get; set; } = true;
-            public int Size { get; set; } = 240;
-            public float Zoom { get; set; } = 2f;
-            public float Opacity { get; set; } = 0.85f;
-            public bool ShowPlayerMarkers { get; set; } = true;
-            public bool ShowNpcMarkers { get; set; } = true;
         }
 
         private static LocalizedString L(string key)

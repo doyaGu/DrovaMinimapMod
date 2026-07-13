@@ -14,7 +14,6 @@ namespace DrovaMinimapMod
 
         public override void OnInitializeMelon()
         {
-            _settings.LoadPersistentValues();
             PlayerAccess.OnPlayerFound += _controller.OnPlayerFound;
             OptionMenuAccess.Instance.OnOptionMenuOpen += BuildOptions;
             OptionMenuAccess.Instance.OnOptionMenuClose += ReloadSettings;
@@ -28,6 +27,7 @@ namespace DrovaMinimapMod
 
         public override void OnUpdate()
         {
+            _settings.TryLoadFromGameConfig();
             _controller.Tick(_settings);
         }
 

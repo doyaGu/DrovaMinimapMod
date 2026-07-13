@@ -114,7 +114,7 @@ namespace DrovaMinimapMod
 
         private static bool ShouldShow(MapMarker marker, MinimapSettings settings)
         {
-            return marker.IsNpcMarker ? settings.ShowNpcMarkers : settings.ShowPlayerMarkers;
+            return marker.IsNpcMarker ? settings.ShowNpcMarkers : settings.ShowStandardMarkers;
         }
 
         private static Sprite GetFallbackIconSprite()
