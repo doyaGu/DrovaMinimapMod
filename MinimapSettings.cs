@@ -30,9 +30,15 @@ namespace DrovaMinimapMod
 
         public void TryLoadFromGameConfig()
         {
-            if (_gameConfigLoaded
-                || ProviderAccess.GetDrovaResourceProvider() == null
-                || ProviderAccess.GetConfigGameHandler() == null)
+            if (_gameConfigLoaded || ProviderAccess.GetDrovaResourceProvider() == null)
+            {
+                return;
+            }
+
+            var configHandler = ProviderAccess.GetConfigGameHandler();
+            if (configHandler == null
+                || configHandler.GameplayConfig == null
+                || configHandler.GameplayConfig.ConfigFile == null)
             {
                 return;
             }
