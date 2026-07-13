@@ -36,7 +36,7 @@ namespace DrovaMinimapMod
         public override void OnUpdate()
         {
             _settings.TryLoadFromGameConfig();
-            _controller.Tick(_settings);
+            _controller.Tick(_settings.Current);
         }
 
         public override void OnDeinitializeMelon()
@@ -45,8 +45,6 @@ namespace DrovaMinimapMod
             OptionMenuAccess.Instance.OnOptionMenuOpen -= BuildOptions;
             OptionMenuAccess.Instance.OnOptionMenuClose -= ReloadSettings;
             _controller.Dispose();
-            MinimapView.ReleaseSharedResources();
-            MarkerRenderer.ReleaseSharedResources();
         }
 
         private void BuildOptions()

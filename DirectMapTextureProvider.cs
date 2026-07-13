@@ -21,14 +21,14 @@ namespace DrovaMinimapMod
         private float _unresolvedSince = -1f;
         private bool _unavailabilityWarningReported;
 
-        public Sprite? Sprite { get; private set; }
-        public Texture? Texture { get; private set; }
-        public Color Color { get; private set; } = Color.white;
-        public float AspectRatio { get; private set; } = 1f;
-        public GUI_Map? NativeMap => _nativeMap;
-        public RectTransform? NativeGraphic => _nativeGraphic;
+        internal Sprite? Sprite { get; private set; }
+        internal Texture? Texture { get; private set; }
+        internal Color Color { get; private set; } = Color.white;
+        internal float AspectRatio { get; private set; } = 1f;
+        internal GUI_Map? NativeMap => _nativeMap;
+        internal RectTransform? NativeGraphic => _nativeGraphic;
 
-        public bool TryResolve(MapData mapData)
+        internal bool TryResolve(MapData mapData)
         {
             if (_definition != mapData.Definition)
             {
@@ -64,6 +64,15 @@ namespace DrovaMinimapMod
             }
 
             return ReportUnresolved(mapData.Definition);
+        }
+
+        internal void Reset()
+        {
+            _definition = null;
+            _nextResolveAttempt = 0f;
+            _unresolvedSince = -1f;
+            _unavailabilityWarningReported = false;
+            ClearResolvedBinding();
         }
 
         private void Reset(MapDefinition definition)

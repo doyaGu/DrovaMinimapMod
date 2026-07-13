@@ -1,7 +1,6 @@
 using Drova_Modding_API.Access;
 using Drova_Modding_API.Systems;
 using Il2CppDrova;
-using Il2CppDrova.MapSystem;
 using UnityEngine;
 
 namespace DrovaMinimapMod
@@ -9,20 +8,23 @@ namespace DrovaMinimapMod
     internal sealed class MinimapController
     {
         private readonly List<Region> _activeRegions = [];
+        private readonly MainWorldMapResolver _mapResolver = new();
+        private readonly NativeMapPresentation _nativeMapPresentation = new();
         private Actor? _player;
         private AreaNameSystem? _areaNameSystem;
         private MinimapView? _view;
 
-        public void OnPlayerFound(Actor player)
+        internal void OnPlayerFound(Actor player)
         {
             _player = player;
             _activeRegions.Clear();
+            _nativeMapPresentation.Reset();
             _view?.Dispose();
             _view = null;
             RefreshAreaSubscription();
         }
 
-        public void RefreshAreaSubscription()
+        internal void RefreshAreaSubscription()
         {
             AreaNameSystem? current = AreaNameSystem.Instance;
             if (ReferenceEquals(_areaNameSystem, current))
@@ -42,7 +44,7 @@ namespace DrovaMinimapMod
             }
         }
 
-        public void Tick(MinimapSettings settings)
+        internal void Tick(MinimapPreferences preferences)
         {
             RefreshAreaSubscription();
 
@@ -52,7 +54,7 @@ namespace DrovaMinimapMod
                 return;
             }
 
-            if (!settings.Enabled)
+            if (!preferences.Enabled)
             {
                 HideView();
                 return;
@@ -84,31 +86,25 @@ namespace DrovaMinimapMod
 
             Vector3 position = _player.transform.position;
             Vector2 playerWorldPosition = new(position.x, position.y);
-            MapData? mapData = GetBestMapData(playerWorldPosition);
+            var mapData = _mapResolver.TryResolve(playerWorldPosition);
             if (mapData == null)
             {
                 _view.SetVisible(false);
                 return;
             }
 
-            if (!mapData.IsEnabled)
-            {
-                _view.SetVisible(false);
-                return;
-            }
-
-            if (!IsMainWorldMap(mapData))
-            {
-                _view.SetVisible(false);
-                return;
-            }
-
             Vector2 lookDirection = _player.GetLookModule()?.CurrentLookDir ?? Vector2.up;
-            _view.UpdateMap(mapData, playerWorldPosition, lookDirection, GetRegionLabel(), settings);
+            var mapPresentation = _nativeMapPresentation.Refresh(mapData, playerWorldPosition);
+            _view.Render(new MinimapFrame(
+                mapData,
+                mapPresentation,
+                lookDirection,
+                GetRegionLabel(),
+                preferences));
             _view.SetVisible(true);
         }
 
-        public void Dispose()
+        internal void Dispose()
         {
             if (_areaNameSystem != null)
             {
@@ -118,79 +114,10 @@ namespace DrovaMinimapMod
 
             _view?.Dispose();
             _view = null;
+            _nativeMapPresentation.Reset();
+            MinimapView.ReleaseSharedResources();
             _player = null;
             _activeRegions.Clear();
-        }
-
-        private MapData? GetBestMapData(Vector2 playerWorldPosition)
-        {
-            if (!ProviderAccess.TryGetPlayerMetaDataGameHandler(out PlayerMetaDataGameHandler? playerMetadata)
-                || playerMetadata == null)
-            {
-                return null;
-            }
-
-            MapCollection? mapCollection = playerMetadata.GetMapCollection();
-            if (mapCollection == null)
-            {
-                return null;
-            }
-
-            // The active scene map is often the broad World definition even while the
-            // player is inside a smaller unlocked regional map. Prefer the smallest
-            // enabled map which actually contains the player, then fall back to it.
-            MapData? fallback = mapCollection.GetMapDataForActiveScene();
-            MapData? bestMatch = null;
-            int bestPriority = int.MinValue;
-            float smallestArea = float.MaxValue;
-            var maps = mapCollection.GetMapDataList();
-            for (int i = 0; i < maps.Count; i++)
-            {
-                MapData candidate = maps[i];
-                if (candidate == null)
-                {
-                    continue;
-                }
-
-                MapDefinition definition = candidate.Definition;
-                bool containsPlayer = definition.IsWorldPosOnMap(playerWorldPosition);
-                if (!candidate.IsEnabled || !containsPlayer)
-                {
-                    continue;
-                }
-
-                Vector2 size = candidate.Definition.WorldMax - candidate.Definition.WorldMin;
-                float area = Mathf.Abs(size.x * size.y);
-                int priority = GetMapPriority(candidate, fallback);
-                if (priority > bestPriority || (priority == bestPriority && area < smallestArea))
-                {
-                    bestPriority = priority;
-                    smallestArea = area;
-                    bestMatch = candidate;
-                }
-            }
-
-            return bestMatch ?? fallback;
-        }
-
-        private static int GetMapPriority(MapData candidate, MapData? activeMap)
-        {
-            if (!IsMainWorldMap(candidate))
-            {
-                return 30;
-            }
-
-            if (MinimapCompatibility.IsDetailedMainWorldDefinition(candidate.Definition.name))
-            {
-                return 20;
-            }
-
-            return candidate == activeMap ? 10 : 0;
-        }
-
-        private static bool IsMainWorldMap(MapData mapData)
-        {
-            return MinimapCompatibility.IsMainWorldDefinition(mapData.Definition.name);
         }
 
         private void OnRegionChanged(Region region, bool hasEntered)

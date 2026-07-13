@@ -5,8 +5,8 @@ using UnityEngine;
 namespace DrovaMinimapMod
 {
     /// <summary>
-    /// Uses the same player-position conversion as Drova's original map marker.
-    /// The map artwork remains mod-owned; only this pure coordinate calculation is read.
+    /// Uses the same player-position conversion and visual bounds as Drova's
+    /// original map marker. Native UI access is limited to this adapter path.
     /// </summary>
     internal sealed class MapCoordinateTransform
     {
@@ -21,20 +21,20 @@ namespace DrovaMinimapMod
         private Vector2 _visualOffset = Vector2.zero;
         private float _nextNativeUpdateAttempt;
 
-        public Vector2 WorldToVisual(MapData mapData, Vector2 worldPosition)
-        {
-            return ToVisualPosition(mapData.Definition.CalcWorldToLocal(worldPosition));
-        }
+        internal MapProjection Projection => new(_visualOffset, _visualScale);
 
-        public Vector2 PlayerWorldToVisual(MapData mapData, Vector2 worldPosition)
+        internal Vector2 PlayerWorldToVisual(MapData mapData, Vector2 worldPosition)
         {
             EnsureDefinition(mapData.Definition);
             return _hasNativePlayerPosition
-                ? ToVisualPosition(_nativePlayerPosition)
-                : WorldToVisual(mapData, worldPosition);
+                ? Projection.ToVisual(_nativePlayerPosition)
+                : Projection.WorldToVisual(mapData.Definition, worldPosition);
         }
 
-        public void UpdateFromNativeMap(MapData mapData, DirectMapTextureProvider textureProvider)
+        internal void UpdateFromNativeMap(
+            MapData mapData,
+            GUI_Map? nativeMap,
+            RectTransform? nativeGraphic)
         {
             EnsureDefinition(mapData.Definition);
             if (Time.unscaledTime < _nextNativeUpdateAttempt)
@@ -42,7 +42,6 @@ namespace DrovaMinimapMod
                 return;
             }
 
-            GUI_Map? nativeMap = textureProvider.NativeMap;
             if (nativeMap == null)
             {
                 InvalidateNativeBinding();
@@ -66,7 +65,7 @@ namespace DrovaMinimapMod
 
                 _nativePlayerPosition = Clamp(normalizedPosition);
                 _hasNativePlayerPosition = true;
-                UpdateVisualBounds(playerMarker, textureProvider.NativeGraphic);
+                UpdateVisualBounds(playerMarker, nativeGraphic);
             }
             catch (Exception)
             {
@@ -113,6 +112,18 @@ namespace DrovaMinimapMod
             _visualOffset = Vector2.zero;
         }
 
+        internal void Reset()
+        {
+            _definition = null;
+            _nativeMap = null;
+            _nativePlayerMarker = null;
+            _hasNativePlayerPosition = false;
+            _nativePlayerPosition = Vector2.zero;
+            _visualScale = Vector2.one;
+            _visualOffset = Vector2.zero;
+            _nextNativeUpdateAttempt = 0f;
+        }
+
         private void UpdateVisualBounds(GUI_MapPlayerMarker playerMarker, RectTransform? sourceGraphic)
         {
             RectTransform? worldGuiArea = playerMarker._worldGuiArea;
@@ -138,13 +149,6 @@ namespace DrovaMinimapMod
             _visualScale = scale;
         }
 
-        private Vector2 ToVisualPosition(Vector2 normalizedPosition)
-        {
-            return Clamp(new Vector2(
-                _visualOffset.x + (normalizedPosition.x * _visualScale.x),
-                _visualOffset.y + (normalizedPosition.y * _visualScale.y)));
-        }
-
         private static Vector2 ToSourceNormalized(RectTransform sourceGraphic, Vector3 worldPosition)
         {
             Vector3 localPosition = sourceGraphic.InverseTransformPoint(worldPosition);
@@ -159,5 +163,37 @@ namespace DrovaMinimapMod
             return new Vector2(Mathf.Clamp01(position.x), Mathf.Clamp01(position.y));
         }
 
+    }
+
+    /// <summary>
+    /// Value projection captured from the current native map binding.
+    /// </summary>
+    internal readonly struct MapProjection
+    {
+        private readonly Vector2 _visualOffset;
+        private readonly Vector2 _visualScale;
+
+        internal MapProjection(Vector2 visualOffset, Vector2 visualScale)
+        {
+            _visualOffset = visualOffset;
+            _visualScale = visualScale;
+        }
+
+        internal Vector2 WorldToVisual(MapDefinition definition, Vector2 worldPosition)
+        {
+            return ToVisual(definition.CalcWorldToLocal(worldPosition));
+        }
+
+        internal Vector2 ToVisual(Vector2 normalizedPosition)
+        {
+            return Clamp(new Vector2(
+                _visualOffset.x + (normalizedPosition.x * _visualScale.x),
+                _visualOffset.y + (normalizedPosition.y * _visualScale.y)));
+        }
+
+        private static Vector2 Clamp(Vector2 position)
+        {
+            return new Vector2(Mathf.Clamp01(position.x), Mathf.Clamp01(position.y));
+        }
     }
 }

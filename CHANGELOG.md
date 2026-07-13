@@ -10,3 +10,4 @@
 - Register localization with the main-menu scene, after Drova creates its localization database.
 - Prevent a startup exception from aborting minimap initialization.
 - Added release packaging, compatibility notes, and a manual regression checklist.
+- Refactored the runtime around a main-world resolver, native-map presentation adapter, and immutable render frame.

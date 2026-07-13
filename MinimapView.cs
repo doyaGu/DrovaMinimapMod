@@ -1,4 +1,3 @@
-using Il2CppDrova.MapSystem;
 using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using Il2CppSystem;
@@ -27,8 +26,6 @@ namespace DrovaMinimapMod
         private readonly RawImage _mapRawImage;
         private readonly Image _playerArrow;
         private readonly TextMeshProUGUI _regionLabel;
-        private readonly DirectMapTextureProvider _mapTextureProvider = new();
-        private readonly MapCoordinateTransform _coordinateTransform = new();
         private readonly MarkerRenderer _markerRenderer;
 
         private float _nextMarkerRefreshTime;
@@ -36,7 +33,7 @@ namespace DrovaMinimapMod
         private int _appliedSize = -1;
         private float _appliedOpacity = -1f;
 
-        public MinimapView(Transform guiRoot)
+        internal MinimapView(Transform guiRoot)
         {
             _canvasRoot = CreateCanvasRoot(guiRoot);
             _root = CreateRect("DrovaMinimapRoot", _canvasRoot.transform);
@@ -88,60 +85,43 @@ namespace DrovaMinimapMod
             _regionLabel.color = new Color(0.95f, 0.95f, 0.92f, 1f);
             _regionLabel.raycastTarget = false;
 
-            ApplyLayout(240, 0.85f);
+            ApplyLayout(MinimapPreferences.Default);
             SetVisible(false);
         }
 
-        public bool IsAttachedTo(Transform guiRoot)
+        internal bool IsAttachedTo(Transform guiRoot)
         {
             return _canvasRoot != null && _canvasRoot && _canvasRoot.transform.parent == guiRoot;
         }
 
-        public void UpdateMap(
-            MapData mapData,
-            Vector2 playerWorldPosition,
-            Vector2 lookDirection,
-            string regionLabel,
-            MinimapSettings settings)
+        internal void Render(in MinimapFrame frame)
         {
-            ApplyLayout(settings.Size, settings.Opacity);
-            float viewportSize = settings.Size - 4f;
-            bool hasMapTexture = _mapTextureProvider.TryResolve(mapData);
-            _coordinateTransform.UpdateFromNativeMap(mapData, _mapTextureProvider);
-            _contentSize = CalculateContentSize(viewportSize, settings.Zoom, _mapTextureProvider.AspectRatio);
+            ApplyLayout(frame.Preferences);
+            _contentSize = frame.ContentSize;
             _mapContent.sizeDelta = _contentSize;
             _markerLayer.sizeDelta = _contentSize;
-            Vector2 contentPosition = GetMapContentPosition(
-                _coordinateTransform.PlayerWorldToVisual(mapData, playerWorldPosition),
-                viewportSize);
-            _mapContent.anchoredPosition = contentPosition;
-            ApplyMapResource(hasMapTexture);
+            _mapContent.anchoredPosition = frame.ContentPosition;
+            ApplyMapResource(frame.MapPresentation);
 
-            if (lookDirection.sqrMagnitude > 0.0001f)
+            if (frame.LookDirection.sqrMagnitude > 0.0001f)
             {
                 _playerArrow.rectTransform.localEulerAngles = new Vector3(
                     0f,
                     0f,
-                    Mathf.Atan2(lookDirection.y, lookDirection.x) * Mathf.Rad2Deg - 90f);
+                    Mathf.Atan2(frame.LookDirection.y, frame.LookDirection.x) * Mathf.Rad2Deg - 90f);
             }
 
-            _regionLabel.text = regionLabel;
-            _regionLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(regionLabel));
+            _regionLabel.text = frame.RegionLabel;
+            _regionLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(frame.RegionLabel));
 
             if (Time.unscaledTime >= _nextMarkerRefreshTime)
             {
-                _markerRenderer.Refresh(
-                    mapData,
-                    _contentSize,
-                    contentPosition,
-                    viewportSize,
-                    settings,
-                    _coordinateTransform);
+                _markerRenderer.Refresh(frame);
                 _nextMarkerRefreshTime = Time.unscaledTime + 0.25f;
             }
         }
 
-        public void SetVisible(bool visible)
+        internal void SetVisible(bool visible)
         {
             if (_root != null && _root && _root.gameObject.activeSelf != visible)
             {
@@ -149,7 +129,7 @@ namespace DrovaMinimapMod
             }
         }
 
-        public void Dispose()
+        internal void Dispose()
         {
             _markerRenderer.Clear();
             if (_canvasRoot != null && _canvasRoot)
@@ -158,7 +138,7 @@ namespace DrovaMinimapMod
             }
         }
 
-        public static void ReleaseSharedResources()
+        internal static void ReleaseSharedResources()
         {
             DestroyRuntimeResource(_solidSprite);
             DestroyRuntimeResource(_arrowSprite);
@@ -166,18 +146,20 @@ namespace DrovaMinimapMod
             _solidSprite = null;
             _arrowSprite = null;
             _arrowTexture = null;
+            MarkerRenderer.ReleaseSharedResources();
         }
 
-        private void ApplyLayout(int size, float opacity)
+        private void ApplyLayout(MinimapPreferences preferences)
         {
-            if (_appliedSize == size && Mathf.Approximately(_appliedOpacity, opacity))
+            if (_appliedSize == preferences.Size
+                && Mathf.Approximately(_appliedOpacity, preferences.Opacity))
             {
                 return;
             }
 
-            _appliedSize = size;
-            _appliedOpacity = opacity;
-            Layout(size, opacity);
+            _appliedSize = preferences.Size;
+            _appliedOpacity = preferences.Opacity;
+            Layout(preferences.Size, preferences.Opacity);
         }
 
         private void Layout(int size, float opacity)
@@ -212,44 +194,26 @@ namespace DrovaMinimapMod
             return rectTransform;
         }
 
-        private void ApplyMapResource(bool hasMapTexture)
+        private void ApplyMapResource(NativeMapPresentationState mapPresentation)
         {
-            _mapImage.gameObject.SetActive(!hasMapTexture || _mapTextureProvider.Sprite != null);
-            _mapRawImage.gameObject.SetActive(hasMapTexture && _mapTextureProvider.Texture != null);
+            _mapImage.gameObject.SetActive(!mapPresentation.HasNativeVisual || mapPresentation.Sprite != null);
+            _mapRawImage.gameObject.SetActive(mapPresentation.HasNativeVisual && mapPresentation.Texture != null);
 
-            if (_mapTextureProvider.Sprite != null)
+            if (mapPresentation.Sprite != null)
             {
-                _mapImage.sprite = _mapTextureProvider.Sprite;
-                _mapImage.color = _mapTextureProvider.Color;
+                _mapImage.sprite = mapPresentation.Sprite;
+                _mapImage.color = mapPresentation.Color;
             }
-            else if (!hasMapTexture)
+            else if (!mapPresentation.HasNativeVisual)
             {
                 _mapImage.color = new Color(0.08f, 0.12f, 0.13f, 0.95f);
             }
 
-            if (_mapTextureProvider.Texture != null)
+            if (mapPresentation.Texture != null)
             {
-                _mapRawImage.texture = _mapTextureProvider.Texture;
-                _mapRawImage.color = _mapTextureProvider.Color;
+                _mapRawImage.texture = mapPresentation.Texture;
+                _mapRawImage.color = mapPresentation.Color;
             }
-        }
-
-        private Vector2 GetMapContentPosition(Vector2 normalizedPlayerPosition, float viewportSize)
-        {
-            return new Vector2(
-                (viewportSize * 0.5f) - (normalizedPlayerPosition.x * _contentSize.x),
-                (viewportSize * 0.5f) - (normalizedPlayerPosition.y * _contentSize.y));
-        }
-
-        private static Vector2 CalculateContentSize(float viewportSize, float zoom, float aspectRatio)
-        {
-            float largestDimension = viewportSize * zoom;
-            if (aspectRatio >= 1f)
-            {
-                return new Vector2(largestDimension, largestDimension / aspectRatio);
-            }
-
-            return new Vector2(largestDimension * aspectRatio, largestDimension);
         }
 
         private static GameObject CreateCanvasRoot(Transform guiRoot)

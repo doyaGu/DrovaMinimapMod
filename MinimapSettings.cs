@@ -16,14 +16,22 @@ namespace DrovaMinimapMod
         private const string ShowNpcMarkersKey = "DrovaMinimap_ShowNpcMarkers";
         private bool _gameConfigLoaded;
 
-        public bool Enabled { get; private set; } = true;
-        public int Size { get; private set; } = 240;
-        public float Zoom { get; private set; } = 2f;
-        public float Opacity { get; private set; } = 0.85f;
-        public bool ShowStandardMarkers { get; private set; } = true;
-        public bool ShowNpcMarkers { get; private set; } = true;
+        internal bool Enabled { get; private set; } = true;
+        internal int Size { get; private set; } = MinimapPreferences.DefaultSize;
+        internal float Zoom { get; private set; } = MinimapPreferences.DefaultZoom;
+        internal float Opacity { get; private set; } = MinimapPreferences.DefaultOpacity;
+        internal bool ShowStandardMarkers { get; private set; } = true;
+        internal bool ShowNpcMarkers { get; private set; } = true;
 
-        public void TryLoadFromGameConfig()
+        internal MinimapPreferences Current => new(
+            Enabled,
+            Size,
+            Zoom,
+            Opacity,
+            ShowStandardMarkers,
+            ShowNpcMarkers);
+
+        internal void TryLoadFromGameConfig()
         {
             if (_gameConfigLoaded || ProviderAccess.GetDrovaResourceProvider() == null)
             {
@@ -42,7 +50,7 @@ namespace DrovaMinimapMod
             _gameConfigLoaded = true;
         }
 
-        public void BuildOptions()
+        internal void BuildOptions()
         {
             TryLoadFromGameConfig();
             OptionUIBuilder? builder = OptionMenuAccess.Instance.GetBuilder(MinimapLocalization.Namespace);
@@ -63,7 +71,7 @@ namespace DrovaMinimapMod
 
         }
 
-        public void ReloadFromConfig()
+        internal void ReloadFromConfig()
         {
             if (ConfigAccessor.TryGetConfigValue<bool>(EnabledKey, out bool enabled))
             {
