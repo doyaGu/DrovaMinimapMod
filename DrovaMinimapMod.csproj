@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>DrovaMinimapMod</AssemblyName>
+    <RootNamespace>DrovaMinimapMod</RootNamespace>
+    <GameRoot>$(MSBuildProjectDirectory)\..</GameRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MelonLoader">
+      <HintPath>$(GameRoot)\MelonLoader\net6\MelonLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Drova_Modding_API">
+      <HintPath>$(GameRoot)\Mods\Drova_Modding_API.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppDrova">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\Il2CppDrova.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppJust2D.Localization">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\Il2CppJust2D.Localization.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppJust2D">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\Il2CppJust2D.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppGilzoide.UpdateManager">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\Il2CppGilzoide.UpdateManager.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(GameRoot)\MelonLoader\Il2CppAssemblies\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(GameRoot)\MelonLoader\net6\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="VerifyGameAssemblies" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameRoot)\Mods\Drova_Modding_API.dll')"
+           Text="Drova Modding API is missing from Mods. Build and deploy the API before building DrovaMinimapMod." />
+    <Error Condition="!Exists('$(GameRoot)\MelonLoader\Il2CppAssemblies\Il2CppDrova.dll')"
+           Text="MelonLoader's generated IL2CPP assemblies are missing. Start Drova once through MelonLoader, then rebuild." />
+  </Target>
+
+  <Target Name="DeployToMods" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameRoot)\Mods" />
+  </Target>
+</Project>
