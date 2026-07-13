@@ -10,6 +10,8 @@ namespace DrovaMinimapMod
 {
     internal sealed class DirectMapTextureProvider
     {
+        private const float ResolveRetryDelay = 0.25f;
+
         private MapDefinition? _definition;
         private GUI_Map? _nativeMap;
         private RectTransform? _nativeGraphic;
@@ -41,7 +43,7 @@ namespace DrovaMinimapMod
                 return false;
             }
 
-            _nextResolveAttempt = Time.unscaledTime + 1f;
+            _nextResolveAttempt = Time.unscaledTime + ResolveRetryDelay;
             GUI_Map? guiMap = FindNativeMap(mapData.Definition);
             if (guiMap == null)
             {
@@ -112,72 +114,29 @@ namespace DrovaMinimapMod
         private bool TryReadMapGraphic(GUI_Map guiMap, MapDefinition definition)
         {
             string expectedContainerName = GetExpectedContainerName(definition);
-            Transform? expectedContainer = guiMap.transform.FindChild($"Panel/{expectedContainerName}");
-            if (expectedContainer != null)
+            Transform? expectedContainer = FindMapContainer(guiMap, expectedContainerName);
+            if (expectedContainer == null)
             {
-                Image? image = expectedContainer.FindChild("Image")?.GetComponent<Image>();
-                if (image != null && image.sprite != null)
+                return false;
+            }
+
+            foreach (Image image in expectedContainer.GetComponentsInChildren<Image>(true))
+            {
+                if (image.name == "Image" && image.sprite != null)
                 {
                     return TryUseImage(image);
                 }
+            }
 
-                RawImage? rawImage = expectedContainer.FindChild("Image")?.GetComponent<RawImage>();
-                if (rawImage != null && rawImage.texture != null)
+            foreach (RawImage rawImage in expectedContainer.GetComponentsInChildren<RawImage>(true))
+            {
+                if (rawImage.name == "Image" && rawImage.texture != null)
                 {
                     return TryUseRawImage(rawImage);
                 }
             }
 
-            return TryReadLargestGraphic(guiMap);
-        }
-
-        private bool TryReadLargestGraphic(GUI_Map guiMap)
-        {
-            Image? bestImage = null;
-            float bestImageArea = 0f;
-            foreach (Image image in guiMap.GetComponentsInChildren<Image>(true))
-            {
-                if (image.sprite == null)
-                {
-                    continue;
-                }
-
-                float area = image.rectTransform.rect.width * image.rectTransform.rect.height;
-                if (area > bestImageArea)
-                {
-                    bestImageArea = area;
-                    bestImage = image;
-                }
-            }
-
-            RawImage? bestRawImage = null;
-            float bestRawImageArea = 0f;
-            foreach (RawImage rawImage in guiMap.GetComponentsInChildren<RawImage>(true))
-            {
-                if (rawImage.texture == null)
-                {
-                    continue;
-                }
-
-                float area = rawImage.rectTransform.rect.width * rawImage.rectTransform.rect.height;
-                if (area > bestRawImageArea)
-                {
-                    bestRawImageArea = area;
-                    bestRawImage = rawImage;
-                }
-            }
-
-            if (bestRawImage != null && bestRawImageArea > bestImageArea)
-            {
-                return TryUseRawImage(bestRawImage);
-            }
-
-            if (bestImage == null)
-            {
-                return false;
-            }
-
-            return TryUseImage(bestImage);
+            return false;
         }
 
         private bool TryUseImage(Image image)
@@ -213,6 +172,25 @@ namespace DrovaMinimapMod
             return definition.name.StartsWith("MapDefinition_", StringComparison.Ordinal)
                 ? "Map_" + definition.name["MapDefinition_".Length..]
                 : definition.name;
+        }
+
+        private static Transform? FindMapContainer(GUI_Map guiMap, string expectedContainerName)
+        {
+            Transform? directContainer = guiMap.transform.FindChild($"Panel/{expectedContainerName}");
+            if (directContainer != null)
+            {
+                return directContainer;
+            }
+
+            foreach (Transform transform in guiMap.GetComponentsInChildren<Transform>(true))
+            {
+                if (string.Equals(transform.name, expectedContainerName, StringComparison.Ordinal))
+                {
+                    return transform;
+                }
+            }
+
+            return null;
         }
 
         private static float GetAspectRatio(RectTransform rectTransform, Texture texture)
