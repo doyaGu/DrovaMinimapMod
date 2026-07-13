@@ -14,6 +14,7 @@ namespace DrovaMinimapMod
 
         public override void OnInitializeMelon()
         {
+            MinimapLocalization.Register();
             PlayerAccess.OnPlayerFound += _controller.OnPlayerFound;
             OptionMenuAccess.Instance.OnOptionMenuOpen += BuildOptions;
             OptionMenuAccess.Instance.OnOptionMenuClose += ReloadSettings;

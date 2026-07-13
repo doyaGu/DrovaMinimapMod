@@ -9,4 +9,5 @@ Run this checklist before releasing a new DLL.
 5. Open the mod settings, change every setting, close the menu, restart the game, and confirm every value persists before opening the settings page again.
 6. Disable the minimap in settings, then open menus and modal windows. Confirm it hides immediately and returns only when enabled gameplay resumes.
 7. Visit an area with several native markers. Confirm off-screen markers do not appear at the edge, then appear normally as the player approaches them.
-8. Inspect MelonLoader's latest log. Confirm there are no DrovaMinimap exceptions or repeated warnings.
+8. Switch between English, Simplified Chinese, and Traditional Chinese. Reopen the options menu and confirm every minimap label is translated without missing-localization text.
+9. Inspect MelonLoader's latest log. Confirm there are no DrovaMinimap exceptions or repeated warnings.
