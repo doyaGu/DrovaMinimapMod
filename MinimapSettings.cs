@@ -14,7 +14,6 @@ namespace DrovaMinimapMod
         // Preserve the existing config key so player settings remain compatible.
         private const string ShowStandardMarkersKey = "DrovaMinimap_ShowPlayerMarkers";
         private const string ShowNpcMarkersKey = "DrovaMinimap_ShowNpcMarkers";
-
         private bool _gameConfigLoaded;
 
         public bool Enabled { get; private set; } = true;
@@ -45,6 +44,7 @@ namespace DrovaMinimapMod
 
         public void BuildOptions()
         {
+            TryLoadFromGameConfig();
             OptionUIBuilder? builder = OptionMenuAccess.Instance.GetBuilder(MinimapLocalization.Namespace);
             if (builder == null)
             {
@@ -60,6 +60,7 @@ namespace DrovaMinimapMod
                 .CreateSwitch(MinimapLocalization.L("ShowMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowStandardMarkersKey, ShowStandardMarkers)
                 .CreateSwitch(MinimapLocalization.L("ShowNpcMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowNpcMarkersKey, ShowNpcMarkers)
                 .Build();
+
         }
 
         public void ReloadFromConfig()
@@ -94,5 +95,6 @@ namespace DrovaMinimapMod
                 ShowNpcMarkers = showNpcMarkers;
             }
         }
+
     }
 }

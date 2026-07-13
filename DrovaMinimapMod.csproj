@@ -6,8 +6,24 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>DrovaMinimapMod</AssemblyName>
     <RootNamespace>DrovaMinimapMod</RootNamespace>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
     <GameRoot>$(MSBuildProjectDirectory)\..</GameRoot>
+    <Deploy>false</Deploy>
+    <GeneratedVersionFile>$(BaseIntermediateOutputPath)$(Configuration)\$(TargetFramework)\BuildVersion.g.cs</GeneratedVersionFile>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(GeneratedVersionFile)" Visible="false" />
+  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="MelonLoader">
@@ -71,7 +87,14 @@
            Text="MelonLoader's generated IL2CPP assemblies are missing. Start Drova once through MelonLoader, then rebuild." />
   </Target>
 
-  <Target Name="DeployToMods" AfterTargets="Build">
+  <Target Name="GenerateBuildVersion" BeforeTargets="CoreCompile">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile File="$(GeneratedVersionFile)"
+                      Lines="namespace DrovaMinimapMod { internal static class BuildVersion { internal const string Value = &quot;$(Version)&quot;%3B } }"
+                      Overwrite="true" />
+  </Target>
+
+  <Target Name="DeployToMods" AfterTargets="Build" Condition="'$(Deploy)' == 'true'">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameRoot)\Mods" />
   </Target>
 </Project>

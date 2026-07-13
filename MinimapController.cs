@@ -8,9 +8,6 @@ namespace DrovaMinimapMod
 {
     internal sealed class MinimapController
     {
-        private const string MainWorldDefinitionName = "MapDefinition_World";
-        private const string DetailedMainWorldDefinitionName = "MapDefinition_World_Detailed";
-
         private readonly List<Region> _activeRegions = [];
         private Actor? _player;
         private AreaNameSystem? _areaNameSystem;
@@ -183,10 +180,7 @@ namespace DrovaMinimapMod
                 return 30;
             }
 
-            if (string.Equals(
-                    candidate.Definition.name,
-                    DetailedMainWorldDefinitionName,
-                    StringComparison.OrdinalIgnoreCase))
+            if (MinimapCompatibility.IsDetailedMainWorldDefinition(candidate.Definition.name))
             {
                 return 20;
             }
@@ -196,9 +190,7 @@ namespace DrovaMinimapMod
 
         private static bool IsMainWorldMap(MapData mapData)
         {
-            string definitionName = mapData.Definition.name;
-            return string.Equals(definitionName, MainWorldDefinitionName, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(definitionName, DetailedMainWorldDefinitionName, StringComparison.OrdinalIgnoreCase);
+            return MinimapCompatibility.IsMainWorldDefinition(mapData.Definition.name);
         }
 
         private void OnRegionChanged(Region region, bool hasEntered)

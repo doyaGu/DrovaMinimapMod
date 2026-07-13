@@ -3,6 +3,7 @@ using Il2CppDrova;
 using Il2CppDrova.GUI;
 using Il2CppDrova.MapSystem;
 using Il2CppDrova.MapSystem.GUI;
+using MelonLoader;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,11 +12,14 @@ namespace DrovaMinimapMod
     internal sealed class DirectMapTextureProvider
     {
         private const float ResolveRetryDelay = 0.25f;
+        private const float UnavailabilityWarningDelay = 3f;
 
         private MapDefinition? _definition;
         private GUI_Map? _nativeMap;
         private RectTransform? _nativeGraphic;
         private float _nextResolveAttempt;
+        private float _unresolvedSince = -1f;
+        private bool _unavailabilityWarningReported;
 
         public Sprite? Sprite { get; private set; }
         public Texture? Texture { get; private set; }
@@ -33,6 +37,7 @@ namespace DrovaMinimapMod
 
             if (HasResolvedBinding())
             {
+                ClearUnresolvedStatus();
                 return true;
             }
 
@@ -47,23 +52,26 @@ namespace DrovaMinimapMod
             GUI_Map? guiMap = FindNativeMap(mapData.Definition);
             if (guiMap == null)
             {
-                return false;
+                return ReportUnresolved(mapData.Definition);
             }
 
             _nativeMap = guiMap;
 
             if (TryReadMapGraphic(guiMap, mapData.Definition))
             {
+                ClearUnresolvedStatus();
                 return true;
             }
 
-            return false;
+            return ReportUnresolved(mapData.Definition);
         }
 
         private void Reset(MapDefinition definition)
         {
             _definition = definition;
             _nextResolveAttempt = 0f;
+            _unresolvedSince = -1f;
+            _unavailabilityWarningReported = false;
             ClearResolvedBinding();
         }
 
@@ -113,7 +121,7 @@ namespace DrovaMinimapMod
 
         private bool TryReadMapGraphic(GUI_Map guiMap, MapDefinition definition)
         {
-            string expectedContainerName = GetExpectedContainerName(definition);
+            string expectedContainerName = MinimapCompatibility.GetMapContainerName(definition.name);
             Transform? expectedContainer = FindMapContainer(guiMap, expectedContainerName);
             if (expectedContainer == null)
             {
@@ -167,13 +175,6 @@ namespace DrovaMinimapMod
             return true;
         }
 
-        private static string GetExpectedContainerName(MapDefinition definition)
-        {
-            return definition.name.StartsWith("MapDefinition_", StringComparison.Ordinal)
-                ? "Map_" + definition.name["MapDefinition_".Length..]
-                : definition.name;
-        }
-
         private static Transform? FindMapContainer(GUI_Map guiMap, string expectedContainerName)
         {
             Transform? directContainer = guiMap.transform.FindChild($"Panel/{expectedContainerName}");
@@ -191,6 +192,30 @@ namespace DrovaMinimapMod
             }
 
             return null;
+        }
+
+        private bool ReportUnresolved(MapDefinition definition)
+        {
+            if (_unresolvedSince < 0f)
+            {
+                _unresolvedSince = Time.unscaledTime;
+            }
+            else if (!_unavailabilityWarningReported
+                     && Time.unscaledTime - _unresolvedSince >= UnavailabilityWarningDelay)
+            {
+                MelonLogger.Warning(
+                    $"Drova Minimap could not bind the native visual for '{definition.name}'. " +
+                    "The minimap is using its radar fallback.");
+                _unavailabilityWarningReported = true;
+            }
+
+            return false;
+        }
+
+        private void ClearUnresolvedStatus()
+        {
+            _unresolvedSince = -1f;
+            _unavailabilityWarningReported = false;
         }
 
         private static float GetAspectRatio(RectTransform rectTransform, Texture texture)
