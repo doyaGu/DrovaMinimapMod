@@ -1,4 +1,5 @@
 using Drova_Modding_API.Access;
+using Drova_Modding_API.GlobalFields;
 using MelonLoader;
 
 [assembly: MelonInfo(typeof(DrovaMinimapMod.Core), "Drova Minimap", "1.0.0", "kakut")]
@@ -14,7 +15,6 @@ namespace DrovaMinimapMod
 
         public override void OnInitializeMelon()
         {
-            MinimapLocalization.Register();
             PlayerAccess.OnPlayerFound += _controller.OnPlayerFound;
             OptionMenuAccess.Instance.OnOptionMenuOpen += BuildOptions;
             OptionMenuAccess.Instance.OnOptionMenuClose += ReloadSettings;
@@ -23,6 +23,13 @@ namespace DrovaMinimapMod
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
+            if (sceneName == SceneNames.MainMenu)
+            {
+                // Drova's LocalizationDB is created with the main-menu scene. The
+                // Modding API registers its own localization entries at this point.
+                MinimapLocalization.Register();
+            }
+
             _controller.RefreshAreaSubscription();
         }
 
