@@ -40,11 +40,6 @@ namespace DrovaMinimapMod
         internal Vector2 ContentSize { get; }
         internal Vector2 ContentPosition { get; }
 
-        internal bool ShouldShow(MapMarker marker)
-        {
-            return marker.IsNpcMarker ? Preferences.ShowNpcMarkers : Preferences.ShowStandardMarkers;
-        }
-
         internal bool TryGetMarkerContentPosition(MapMarker marker, out Vector2 markerPosition)
         {
             Vector2 normalizedPosition = MapPresentation.WorldToVisual(marker.WorldPos);

@@ -26,7 +26,7 @@ namespace DrovaMinimapMod
             for (int i = 0; i < frame.MapData.Markers.Count; i++)
             {
                 MapMarker marker = frame.MapData.Markers[i];
-                if (marker == null || !frame.ShouldShow(marker))
+                if (marker == null)
                 {
                     continue;
                 }

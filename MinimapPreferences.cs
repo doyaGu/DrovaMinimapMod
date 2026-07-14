@@ -24,16 +24,14 @@ namespace DrovaMinimapMod
             size: DefaultSize,
             zoom: DefaultZoom,
             opacityPercentage: DefaultOpacityPercentage,
-            showStandardMarkers: true,
-            showNpcMarkers: true);
+            useAreaMaps: true);
 
         internal MinimapPreferences(
             bool enabled,
             int size,
             float zoom,
             int opacityPercentage,
-            bool showStandardMarkers,
-            bool showNpcMarkers)
+            bool useAreaMaps)
         {
             Enabled = enabled;
             Size = Mathf.Clamp(size, MinimumSize, MaximumSize);
@@ -42,8 +40,7 @@ namespace DrovaMinimapMod
                 opacityPercentage,
                 MinimumOpacityPercentage,
                 MaximumOpacityPercentage);
-            ShowStandardMarkers = showStandardMarkers;
-            ShowNpcMarkers = showNpcMarkers;
+            UseAreaMaps = useAreaMaps;
         }
 
         internal bool Enabled { get; }
@@ -51,7 +48,6 @@ namespace DrovaMinimapMod
         internal float Zoom { get; }
         internal int OpacityPercentage { get; }
         internal float Opacity => OpacityPercentage / 100f;
-        internal bool ShowStandardMarkers { get; }
-        internal bool ShowNpcMarkers { get; }
+        internal bool UseAreaMaps { get; }
     }
 }

@@ -7,12 +7,13 @@ namespace DrovaMinimapMod
 {
     /// <summary>
     /// Selects the enabled active-scene map whose native marker space contains the
-    /// player's feet. A local map wins over overlapping world maps; the candidate
-    /// itself owns the ordering rules within either category.
+    /// player's feet. Area maps can be disabled by the player, in which case the
+    /// best matching world map is retained. The candidate itself owns ordering
+    /// rules within each category.
     /// </summary>
     internal sealed class PlayerPositionMapResolver
     {
-        internal MapData? TryResolve(Vector2 playerWorldPosition)
+        internal MapData? TryResolve(Vector2 playerWorldPosition, bool useAreaMaps)
         {
             if (!ProviderAccess.TryGetPlayerMetaDataGameHandler(out PlayerMetaDataGameHandler? playerMetadata)
                 || playerMetadata == null)
@@ -42,13 +43,15 @@ namespace DrovaMinimapMod
                         bestWorldMap = candidate;
                     }
                 }
-                else if (candidate.IsPreferredTo(bestLocalMap))
+                else if (useAreaMaps && candidate.IsPreferredTo(bestLocalMap))
                 {
                     bestLocalMap = candidate;
                 }
             }
 
-            return bestLocalMap?.MapData ?? bestWorldMap?.MapData;
+            return useAreaMaps
+                ? bestLocalMap?.MapData ?? bestWorldMap?.MapData
+                : bestWorldMap?.MapData;
         }
 
         private enum MapScope

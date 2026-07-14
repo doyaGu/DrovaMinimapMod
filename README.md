@@ -13,7 +13,7 @@ Validated against the bundled Drova Modding API **0.5.1**. The mod reads Drova's
 - Displays the original art for the most specific enabled map covering the player, with the player centered and oriented by look direction.
 - Shows native map and NPC markers only when they approach the minimap viewport.
 - Hides during menus, modal windows, HUD-hidden states, and whenever no enabled map is valid for the player's current scene and position.
-- Includes settings for enablement, size, zoom, opacity, regular markers, and NPC markers.
+- Includes settings for enablement, automatic area-map switching, size, zoom, and opacity.
 - Uses Drova's localization system; Simplified and Traditional Chinese are translated, with English fallback for other supported languages.
 
 ## Requirements
@@ -29,7 +29,7 @@ Validated against the bundled Drova Modding API **0.5.1**. The mod reads Drova's
 
 ## Compatibility and fallback behavior
 
-Map selection mirrors the native player-marker eligibility: a map must be enabled, valid on the active scene, and contain the player's feet position. The minimap chooses the smallest matching local map. When only overlapping world-map variants remain, it prefers `World_Detailed`, then the rough world map, while supplemental overlays such as `World_Shrines` are never selected as terrain. This is a minimap presentation rule; it never reads or changes Drova's saved full-map tab (`ActiveMapGuid`).
+Map selection mirrors the native player-marker eligibility: a map must be enabled, valid on the active scene, and contain the player's feet position. By default, the minimap chooses the smallest matching local map. Disable **Switch to area maps** to retain the best matching world map instead. When only overlapping world-map variants remain, it prefers `World_Detailed`, then the rough world map, while supplemental overlays such as `World_Shrines` are never selected as terrain. This is a minimap presentation rule; it never reads or changes Drova's saved full-map tab (`ActiveMapGuid`).
 
 The visual is read from the matching original `GUI_Map` through the map panel's definition-to-map dictionary, then from that map's `MapArea`. The hidden map panel is initialized once without opening or changing the full-map UI. If the original visual is unavailable, the mod shows the radar fallback.
 

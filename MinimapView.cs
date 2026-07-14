@@ -34,9 +34,6 @@ namespace DrovaMinimapMod
         private int _appliedSize = -1;
         private float _appliedOpacity = -1f;
         private string _appliedRegionLabel = string.Empty;
-        private bool _showStandardMarkers = true;
-        private bool _showNpcMarkers = true;
-        private bool _markerVisibilityInitialized;
 
         internal MinimapView(Transform guiRoot)
         {
@@ -119,15 +116,9 @@ namespace DrovaMinimapMod
 
             ApplyRegionLabel(frame.RegionLabel);
 
-            bool markerVisibilityChanged = !_markerVisibilityInitialized
-                || _showStandardMarkers != frame.Preferences.ShowStandardMarkers
-                || _showNpcMarkers != frame.Preferences.ShowNpcMarkers;
-            if (markerVisibilityChanged || Time.unscaledTime >= _nextMarkerRefreshTime)
+            if (Time.unscaledTime >= _nextMarkerRefreshTime)
             {
                 _markerRenderer.Refresh(frame);
-                _showStandardMarkers = frame.Preferences.ShowStandardMarkers;
-                _showNpcMarkers = frame.Preferences.ShowNpcMarkers;
-                _markerVisibilityInitialized = true;
                 _nextMarkerRefreshTime = Time.unscaledTime + 0.25f;
             }
         }

@@ -9,10 +9,7 @@ namespace DrovaMinimapMod
         private const string SizeKey = "DrovaMinimap_Size";
         private const string ZoomKey = "DrovaMinimap_Zoom";
         private const string OpacityKey = "DrovaMinimap_Opacity";
-
-        // Preserve the existing config key so player settings remain compatible.
-        private const string ShowStandardMarkersKey = "DrovaMinimap_ShowPlayerMarkers";
-        private const string ShowNpcMarkersKey = "DrovaMinimap_ShowNpcMarkers";
+        private const string UseAreaMapsKey = "DrovaMinimap_UseAreaMaps";
 
         private bool _gameConfigLoaded;
         private MinimapPreferences _preferences = MinimapPreferences.Default;
@@ -51,11 +48,10 @@ namespace DrovaMinimapMod
             builder
                 .CreateTitle(MinimapLocalization.L("Title"))
                 .CreateSwitch(MinimapLocalization.L("Enabled"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), EnabledKey, preferences.Enabled)
+                .CreateSwitch(MinimapLocalization.L("UseAreaMaps"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), UseAreaMapsKey, preferences.UseAreaMaps)
                 .CreateSlider(MinimapLocalization.L("Size"), SizeKey, MinimapPreferences.MinimumSize, MinimapPreferences.MaximumSize, preferences.Size)
                 .CreateSlider(MinimapLocalization.L("Zoom"), ZoomKey, MinimapPreferences.MinimumZoom, MinimapPreferences.MaximumZoom, preferences.Zoom, false)
                 .CreateSlider(MinimapLocalization.L("Opacity"), OpacityKey, MinimapPreferences.MinimumOpacityPercentage, MinimapPreferences.MaximumOpacityPercentage, preferences.OpacityPercentage)
-                .CreateSwitch(MinimapLocalization.L("ShowMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowStandardMarkersKey, preferences.ShowStandardMarkers)
-                .CreateSwitch(MinimapLocalization.L("ShowNpcMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowNpcMarkersKey, preferences.ShowNpcMarkers)
                 .Build();
         }
 
@@ -63,12 +59,11 @@ namespace DrovaMinimapMod
         {
             MinimapPreferences current = Current;
             _preferences = new MinimapPreferences(
-                ReadValue(EnabledKey, current.Enabled),
-                ReadValue(SizeKey, current.Size),
-                ReadValue(ZoomKey, current.Zoom),
-                ReadValue(OpacityKey, current.OpacityPercentage),
-                ReadValue(ShowStandardMarkersKey, current.ShowStandardMarkers),
-                ReadValue(ShowNpcMarkersKey, current.ShowNpcMarkers));
+                enabled: ReadValue(EnabledKey, current.Enabled),
+                size: ReadValue(SizeKey, current.Size),
+                zoom: ReadValue(ZoomKey, current.Zoom),
+                opacityPercentage: ReadValue(OpacityKey, current.OpacityPercentage),
+                useAreaMaps: ReadValue(UseAreaMapsKey, current.UseAreaMaps));
         }
 
         private static T ReadValue<T>(string key, T fallback)

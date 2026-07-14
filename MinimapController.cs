@@ -114,7 +114,7 @@ namespace DrovaMinimapMod
             // Match GUI_MapPlayerMarker: the native full-map marker is placed
             // from the entity's feet position, not the actor transform pivot.
             Vector2 playerWorldPosition = _player.GetFeetPosition();
-            var mapData = _mapResolver.TryResolve(playerWorldPosition);
+            var mapData = _mapResolver.TryResolve(playerWorldPosition, preferences.UseAreaMaps);
             if (mapData == null)
             {
                 SuspendMapPresentation();
