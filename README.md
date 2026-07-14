@@ -1,18 +1,18 @@
 # Drova Minimap
 
-`Drova Minimap` is a MelonLoader mod that renders a non-interactive minimap from Drova's original main-world map visual.
+`Drova Minimap` is a MelonLoader mod that renders a non-interactive minimap from Drova's original map visuals.
 
 ## Release status
 
 Current release: **1.0.0**
 
-Validated against the bundled Drova Modding API **0.5.1**. The mod depends on Drova's internal main-world map UI naming, so verify a new game build with [TESTING.md](TESTING.md) before publishing it as supported.
+Validated against the bundled Drova Modding API **0.5.1**. The mod reads Drova's per-definition map UI directly, so verify a new game build with [TESTING.md](TESTING.md) before publishing it as supported.
 
 ## Features
 
-- Displays the original main-world map art with the player centered and oriented by look direction.
+- Displays the original art for the most specific enabled map covering the player, with the player centered and oriented by look direction.
 - Shows native map and NPC markers only when they approach the minimap viewport.
-- Hides during menus, modal windows, HUD-hidden states, caves, and other non-main-world maps.
+- Hides during menus, modal windows, HUD-hidden states, and whenever no enabled map is valid for the player's current scene and position.
 - Includes settings for enablement, size, zoom, opacity, regular markers, and NPC markers.
 - Uses Drova's localization system; Simplified and Traditional Chinese are translated, with English fallback for other supported languages.
 
@@ -29,9 +29,9 @@ Validated against the bundled Drova Modding API **0.5.1**. The mod depends on Dr
 
 ## Compatibility and fallback behavior
 
-The minimap is intentionally limited to `MapDefinition_World` and `MapDefinition_World_Detailed`. Caves and other independent map definitions hide the minimap.
+Map selection mirrors the native player-marker eligibility: a map must be enabled, valid on the active scene, and contain the player's feet position. The minimap chooses the smallest matching local map. When only overlapping world-map variants remain, it prefers `World_Detailed`, then the rough world map, while supplemental overlays such as `World_Shrines` are never selected as terrain. This is a minimap presentation rule; it never reads or changes Drova's saved full-map tab (`ActiveMapGuid`).
 
-The mod binds only the original map node matching the active map definition. If Drova's UI has not created that node yet, the mod uses its radar fallback and retries. A single warning is written only if that fallback persists for three seconds, which normally indicates a game/UI compatibility change.
+The visual is read from the matching original `GUI_Map` through the map panel's definition-to-map dictionary, then from that map's `MapArea`. The hidden map panel is initialized once without opening or changing the full-map UI. If the original visual is unavailable, the mod shows the radar fallback.
 
 ## Building and releasing
 
