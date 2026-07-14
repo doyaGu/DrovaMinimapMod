@@ -14,7 +14,7 @@ namespace DrovaMinimapMod
 
         internal MinimapFrame(
             MapData mapData,
-            NativeMapPresentationState mapPresentation,
+            MapPresentation mapPresentation,
             Vector2 lookDirection,
             string regionLabel,
             MinimapPreferences preferences)
@@ -32,7 +32,7 @@ namespace DrovaMinimapMod
         }
 
         internal MapData MapData { get; }
-        internal NativeMapPresentationState MapPresentation { get; }
+        internal MapPresentation MapPresentation { get; }
         internal Vector2 LookDirection { get; }
         internal string RegionLabel { get; }
         internal MinimapPreferences Preferences { get; }

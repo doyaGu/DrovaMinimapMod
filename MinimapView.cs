@@ -16,6 +16,7 @@ namespace DrovaMinimapMod
         private static Sprite? _arrowSprite;
         private static Texture2D? _arrowTexture;
 
+        private readonly Transform _guiRoot;
         private readonly GameObject _canvasRoot;
         private readonly RectTransform _root;
         private readonly CanvasGroup _canvasGroup;
@@ -32,9 +33,14 @@ namespace DrovaMinimapMod
         private Vector2 _contentSize;
         private int _appliedSize = -1;
         private float _appliedOpacity = -1f;
+        private string _appliedRegionLabel = string.Empty;
+        private bool _showStandardMarkers = true;
+        private bool _showNpcMarkers = true;
+        private bool _markerVisibilityInitialized;
 
         internal MinimapView(Transform guiRoot)
         {
+            _guiRoot = guiRoot;
             _canvasRoot = CreateCanvasRoot(guiRoot);
             _root = CreateRect("DrovaMinimapRoot", _canvasRoot.transform);
             _canvasGroup = _root.gameObject.AddComponent<CanvasGroup>();
@@ -111,12 +117,17 @@ namespace DrovaMinimapMod
                     Mathf.Atan2(frame.LookDirection.y, frame.LookDirection.x) * Mathf.Rad2Deg - 90f);
             }
 
-            _regionLabel.text = frame.RegionLabel;
-            _regionLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(frame.RegionLabel));
+            ApplyRegionLabel(frame.RegionLabel);
 
-            if (Time.unscaledTime >= _nextMarkerRefreshTime)
+            bool markerVisibilityChanged = !_markerVisibilityInitialized
+                || _showStandardMarkers != frame.Preferences.ShowStandardMarkers
+                || _showNpcMarkers != frame.Preferences.ShowNpcMarkers;
+            if (markerVisibilityChanged || Time.unscaledTime >= _nextMarkerRefreshTime)
             {
                 _markerRenderer.Refresh(frame);
+                _showStandardMarkers = frame.Preferences.ShowStandardMarkers;
+                _showNpcMarkers = frame.Preferences.ShowNpcMarkers;
+                _markerVisibilityInitialized = true;
                 _nextMarkerRefreshTime = Time.unscaledTime + 0.25f;
             }
         }
@@ -194,26 +205,88 @@ namespace DrovaMinimapMod
             return rectTransform;
         }
 
-        private void ApplyMapResource(NativeMapPresentationState mapPresentation)
+        private void ApplyMapResource(MapPresentation mapPresentation)
         {
-            _mapImage.gameObject.SetActive(!mapPresentation.HasNativeVisual || mapPresentation.Sprite != null);
-            _mapRawImage.gameObject.SetActive(mapPresentation.HasNativeVisual && mapPresentation.Texture != null);
+            MapSurface surface = mapPresentation.Surface;
+            switch (surface.Kind)
+            {
+                case MapSurfaceKind.Sprite:
+                    _mapImage.gameObject.SetActive(true);
+                    _mapRawImage.gameObject.SetActive(false);
+                    _mapImage.sprite = surface.Sprite;
+                    _mapImage.color = surface.Color;
+                    break;
 
-            if (mapPresentation.Sprite != null)
-            {
-                _mapImage.sprite = mapPresentation.Sprite;
-                _mapImage.color = mapPresentation.Color;
+                case MapSurfaceKind.Texture:
+                    _mapImage.gameObject.SetActive(false);
+                    _mapRawImage.gameObject.SetActive(true);
+                    _mapRawImage.texture = surface.Texture;
+                    _mapRawImage.color = surface.Color;
+                    break;
+
+                case MapSurfaceKind.Radar:
+                    _mapImage.gameObject.SetActive(true);
+                    _mapRawImage.gameObject.SetActive(false);
+                    _mapImage.sprite = GetSolidSprite();
+                    _mapImage.color = new Color(0.08f, 0.12f, 0.13f, 0.95f);
+                    break;
+
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(surface.Kind), surface.Kind, null);
             }
-            else if (!mapPresentation.HasNativeVisual)
+        }
+
+        private void ApplyRegionLabel(string regionLabel)
+        {
+            if (!string.Equals(_appliedRegionLabel, regionLabel, System.StringComparison.Ordinal))
             {
-                _mapImage.color = new Color(0.08f, 0.12f, 0.13f, 0.95f);
+                _regionLabel.font = FindFontFor(regionLabel);
+                _appliedRegionLabel = regionLabel;
             }
 
-            if (mapPresentation.Texture != null)
+            _regionLabel.text = regionLabel;
+            _regionLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(regionLabel));
+        }
+
+        private TMP_FontAsset FindFontFor(string text)
+        {
+            TMP_FontAsset currentFont = _regionLabel.font ?? TMP_Settings.defaultFontAsset;
+            if (SupportsText(currentFont, text))
             {
-                _mapRawImage.texture = mapPresentation.Texture;
-                _mapRawImage.color = mapPresentation.Color;
+                return currentFont;
             }
+
+            foreach (TextMeshProUGUI sourceText in _guiRoot.GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                TMP_FontAsset? candidate = sourceText.font;
+                if (candidate != null && SupportsText(candidate, text))
+                {
+                    return candidate;
+                }
+            }
+
+            foreach (TMP_FontAsset candidate in Resources.FindObjectsOfTypeAll<TMP_FontAsset>())
+            {
+                if (candidate != null && SupportsText(candidate, text))
+                {
+                    return candidate;
+                }
+            }
+
+            return currentFont;
+        }
+
+        private static bool SupportsText(TMP_FontAsset font, string text)
+        {
+            foreach (char character in text)
+            {
+                if (!font.HasCharacter(character, true, false))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static GameObject CreateCanvasRoot(Transform guiRoot)

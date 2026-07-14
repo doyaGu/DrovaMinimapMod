@@ -1,6 +1,5 @@
 using Drova_Modding_API.Access;
 using Drova_Modding_API.UI.Builder;
-using UnityEngine;
 
 namespace DrovaMinimapMod
 {
@@ -14,24 +13,13 @@ namespace DrovaMinimapMod
         // Preserve the existing config key so player settings remain compatible.
         private const string ShowStandardMarkersKey = "DrovaMinimap_ShowPlayerMarkers";
         private const string ShowNpcMarkersKey = "DrovaMinimap_ShowNpcMarkers";
+
         private bool _gameConfigLoaded;
+        private MinimapPreferences _preferences = MinimapPreferences.Default;
 
-        internal bool Enabled { get; private set; } = true;
-        internal int Size { get; private set; } = MinimapPreferences.DefaultSize;
-        internal float Zoom { get; private set; } = MinimapPreferences.DefaultZoom;
-        internal float Opacity { get; private set; } = MinimapPreferences.DefaultOpacity;
-        internal bool ShowStandardMarkers { get; private set; } = true;
-        internal bool ShowNpcMarkers { get; private set; } = true;
+        internal MinimapPreferences Current => _preferences;
 
-        internal MinimapPreferences Current => new(
-            Enabled,
-            Size,
-            Zoom,
-            Opacity,
-            ShowStandardMarkers,
-            ShowNpcMarkers);
-
-        internal void TryLoadFromGameConfig()
+        internal void LoadFromGameConfigIfAvailable()
         {
             if (_gameConfigLoaded || ProviderAccess.GetDrovaResourceProvider() == null)
             {
@@ -52,57 +40,40 @@ namespace DrovaMinimapMod
 
         internal void BuildOptions()
         {
-            TryLoadFromGameConfig();
+            LoadFromGameConfigIfAvailable();
             OptionUIBuilder? builder = OptionMenuAccess.Instance.GetBuilder(MinimapLocalization.Namespace);
             if (builder == null)
             {
                 return;
             }
 
+            MinimapPreferences preferences = Current;
             builder
                 .CreateTitle(MinimapLocalization.L("Title"))
-                .CreateSwitch(MinimapLocalization.L("Enabled"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), EnabledKey, Enabled)
-                .CreateSlider(MinimapLocalization.L("Size"), SizeKey, 160, 420, Size)
-                .CreateSlider(MinimapLocalization.L("Zoom"), ZoomKey, 1f, 4f, Zoom, false)
-                .CreateSlider(MinimapLocalization.L("Opacity"), OpacityKey, 40, 100, Mathf.RoundToInt(Opacity * 100f))
-                .CreateSwitch(MinimapLocalization.L("ShowMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowStandardMarkersKey, ShowStandardMarkers)
-                .CreateSwitch(MinimapLocalization.L("ShowNpcMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowNpcMarkersKey, ShowNpcMarkers)
+                .CreateSwitch(MinimapLocalization.L("Enabled"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), EnabledKey, preferences.Enabled)
+                .CreateSlider(MinimapLocalization.L("Size"), SizeKey, MinimapPreferences.MinimumSize, MinimapPreferences.MaximumSize, preferences.Size)
+                .CreateSlider(MinimapLocalization.L("Zoom"), ZoomKey, MinimapPreferences.MinimumZoom, MinimapPreferences.MaximumZoom, preferences.Zoom, false)
+                .CreateSlider(MinimapLocalization.L("Opacity"), OpacityKey, MinimapPreferences.MinimumOpacityPercentage, MinimapPreferences.MaximumOpacityPercentage, preferences.OpacityPercentage)
+                .CreateSwitch(MinimapLocalization.L("ShowMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowStandardMarkersKey, preferences.ShowStandardMarkers)
+                .CreateSwitch(MinimapLocalization.L("ShowNpcMarkers"), MinimapLocalization.L("On"), MinimapLocalization.L("Off"), ShowNpcMarkersKey, preferences.ShowNpcMarkers)
                 .Build();
-
         }
 
         internal void ReloadFromConfig()
         {
-            if (ConfigAccessor.TryGetConfigValue<bool>(EnabledKey, out bool enabled))
-            {
-                Enabled = enabled;
-            }
-
-            if (ConfigAccessor.TryGetConfigValue<int>(SizeKey, out int size))
-            {
-                Size = Mathf.Clamp(size, 160, 420);
-            }
-
-            if (ConfigAccessor.TryGetConfigValue<float>(ZoomKey, out float zoom))
-            {
-                Zoom = Mathf.Clamp(zoom, 1f, 4f);
-            }
-
-            if (ConfigAccessor.TryGetConfigValue<int>(OpacityKey, out int opacity))
-            {
-                Opacity = Mathf.Clamp(opacity, 40, 100) / 100f;
-            }
-
-            if (ConfigAccessor.TryGetConfigValue<bool>(ShowStandardMarkersKey, out bool showStandardMarkers))
-            {
-                ShowStandardMarkers = showStandardMarkers;
-            }
-
-            if (ConfigAccessor.TryGetConfigValue<bool>(ShowNpcMarkersKey, out bool showNpcMarkers))
-            {
-                ShowNpcMarkers = showNpcMarkers;
-            }
+            MinimapPreferences current = Current;
+            _preferences = new MinimapPreferences(
+                ReadValue(EnabledKey, current.Enabled),
+                ReadValue(SizeKey, current.Size),
+                ReadValue(ZoomKey, current.Zoom),
+                ReadValue(OpacityKey, current.OpacityPercentage),
+                ReadValue(ShowStandardMarkersKey, current.ShowStandardMarkers),
+                ReadValue(ShowNpcMarkersKey, current.ShowNpcMarkers));
         }
 
+        private static T ReadValue<T>(string key, T fallback)
+        {
+            return ConfigAccessor.TryGetConfigValue<T>(key, out T value) ? value : fallback;
+        }
     }
 }

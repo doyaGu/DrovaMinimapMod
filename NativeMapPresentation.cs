@@ -1,80 +1,313 @@
+using Drova_Modding_API.Access;
+using Il2CppInterop.Runtime;
+using Il2CppDrova;
+using Il2CppDrova.GUI;
 using Il2CppDrova.MapSystem;
+using Il2CppDrova.MapSystem.GUI;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DrovaMinimapMod
 {
     /// <summary>
-    /// Owns every dependency on Drova's original map UI and produces stable
-    /// visual and coordinate data for a single minimap frame.
+    /// Resolves Drova's original map UI into one complete minimap presentation.
+    /// This is the only place that knows how to initialize the hidden map panel,
+    /// locate a native map, select its terrain visual, and calibrate marker space.
     /// </summary>
     internal sealed class NativeMapPresentation
     {
-        private readonly DirectMapTextureProvider _visualBinding = new();
-        private readonly MapCoordinateTransform _coordinateTransform = new();
+        private const float ResolveRetryDelay = 0.25f;
 
-        internal NativeMapPresentationState Refresh(MapData mapData, Vector2 playerWorldPosition)
+        private MapDefinition? _definition;
+        private NativeMapBinding? _binding;
+        private float _nextResolveAttempt;
+
+        internal MapPresentation Resolve(MapData mapData, Vector2 playerWorldPosition)
         {
-            bool hasNativeVisual = _visualBinding.TryResolve(mapData);
-            _coordinateTransform.UpdateFromNativeMap(
-                mapData,
-                _visualBinding.NativeMap,
-                _visualBinding.NativeGraphic);
-            return new NativeMapPresentationState(
+            return new MapPresentation(
                 mapData.Definition,
-                hasNativeVisual,
-                _visualBinding.Sprite,
-                _visualBinding.Texture,
-                _visualBinding.Color,
-                _visualBinding.AspectRatio,
-                _coordinateTransform.PlayerWorldToVisual(mapData, playerWorldPosition),
-                _coordinateTransform.Projection);
+                ResolveSurface(mapData),
+                playerWorldPosition);
         }
 
         internal void Reset()
         {
-            _visualBinding.Reset();
-            _coordinateTransform.Reset();
+            _definition = null;
+            _nextResolveAttempt = 0f;
+            ClearBinding();
         }
-    }
 
-    /// <summary>
-    /// Immutable native-map data consumed by one minimap frame.
-    /// </summary>
-    internal readonly struct NativeMapPresentationState
-    {
-        private readonly MapDefinition _definition;
-        private readonly MapProjection _projection;
+        private MapSurface ResolveSurface(MapData mapData)
+        {
+            if (_definition != mapData.Definition)
+            {
+                ResetFor(mapData.Definition);
+            }
 
-        internal NativeMapPresentationState(
-            MapDefinition definition,
-            bool hasNativeVisual,
-            Sprite? sprite,
-            Texture? texture,
-            Color color,
-            float aspectRatio,
-            Vector2 playerPosition,
-            MapProjection projection)
+            NativeMapBinding? cachedBinding = _binding;
+            if (cachedBinding != null && cachedBinding.IsAlive)
+            {
+                return cachedBinding.Surface;
+            }
+
+            ClearBinding();
+            if (Time.unscaledTime < _nextResolveAttempt)
+            {
+                return MapSurface.Radar;
+            }
+
+            _nextResolveAttempt = Time.unscaledTime + ResolveRetryDelay;
+            GUI_Map? nativeMap = FindNativeMap(mapData.Definition);
+            if (nativeMap == null)
+            {
+                return MapSurface.Radar;
+            }
+
+            NativeMapBinding? resolvedBinding = ReadBinding(nativeMap);
+            if (resolvedBinding == null)
+            {
+                return MapSurface.Radar;
+            }
+
+            _binding = resolvedBinding;
+            return resolvedBinding.Surface;
+        }
+
+        private void ResetFor(MapDefinition definition)
         {
             _definition = definition;
-            HasNativeVisual = hasNativeVisual;
-            Sprite = sprite;
-            Texture = texture;
-            Color = color;
-            AspectRatio = aspectRatio;
-            PlayerPosition = playerPosition;
-            _projection = projection;
+            _nextResolveAttempt = 0f;
+            ClearBinding();
         }
 
-        internal bool HasNativeVisual { get; }
-        internal Sprite? Sprite { get; }
-        internal Texture? Texture { get; }
-        internal Color Color { get; }
-        internal float AspectRatio { get; }
-        internal Vector2 PlayerPosition { get; }
-
-        internal Vector2 WorldToVisual(Vector2 worldPosition)
+        private void ClearBinding()
         {
-            return _projection.WorldToVisual(_definition, worldPosition);
+            _binding = null;
+        }
+
+        private static GUI_Map? FindNativeMap(MapDefinition definition)
+        {
+            GUIGameHandler? guiHandler = ProviderAccess.GetGUIGameHandler();
+            GUI_Window_GameMenu? gameMenu = guiHandler?.GetPlayerGamePanel();
+            GUI_GameMenu_MapPanel? mapPanel = FindMapPanel(gameMenu);
+            if (mapPanel == null)
+            {
+                return null;
+            }
+
+            if (!EnsureMapPanelInitialized(gameMenu!, mapPanel))
+            {
+                return null;
+            }
+
+            var mapsByDefinition = mapPanel._definitionToMapGui;
+            if (mapsByDefinition == null
+                || !mapsByDefinition.TryGetValue(definition, out var buttonMapData)
+                || buttonMapData == null)
+            {
+                return null;
+            }
+
+            return buttonMapData.Map;
+        }
+
+        private static GUI_GameMenu_MapPanel? FindMapPanel(GUI_Window_GameMenu? gameMenu)
+        {
+            if (gameMenu == null
+                || !gameMenu.TryGetPanelWithId((int)GUI_Window_GameMenu.ECategories.Map, out var mapTab)
+                || mapTab?.Instance == null)
+            {
+                return null;
+            }
+
+            return mapTab.Instance.TryCast<GUI_GameMenu_MapPanel>();
+        }
+
+        private static bool EnsureMapPanelInitialized(
+            GUI_Window_GameMenu gameMenu,
+            GUI_GameMenu_MapPanel mapPanel)
+        {
+            if (mapPanel._definitionToMapGui != null)
+            {
+                return true;
+            }
+
+            List<Behaviour> disabledBehaviours = [];
+            bool gameMenuWasActive = gameMenu.gameObject.activeSelf;
+            bool mapPanelWasActive = mapPanel.gameObject.activeSelf;
+
+            try
+            {
+                Disable(gameMenu, disabledBehaviours);
+                Disable(mapPanel, disabledBehaviours);
+                foreach (GUI_Map map in mapPanel.GetComponentsInChildren<GUI_Map>(true))
+                {
+                    if (map != null)
+                    {
+                        Disable(map, disabledBehaviours);
+                    }
+                }
+
+                if (!gameMenuWasActive)
+                {
+                    gameMenu.gameObject.SetActive(true);
+                }
+
+                if (!mapPanelWasActive)
+                {
+                    mapPanel.gameObject.SetActive(true);
+                }
+            }
+            finally
+            {
+                if (!mapPanelWasActive && mapPanel.gameObject.activeSelf)
+                {
+                    mapPanel.gameObject.SetActive(false);
+                }
+
+                if (!gameMenuWasActive && gameMenu.gameObject.activeSelf)
+                {
+                    gameMenu.gameObject.SetActive(false);
+                }
+
+                for (int i = disabledBehaviours.Count - 1; i >= 0; i--)
+                {
+                    Behaviour behaviour = disabledBehaviours[i];
+                    if (behaviour != null)
+                    {
+                        behaviour.enabled = true;
+                    }
+                }
+            }
+
+            return mapPanel._definitionToMapGui != null;
+        }
+
+        private static void Disable(Behaviour behaviour, List<Behaviour> disabledBehaviours)
+        {
+            if (!behaviour.enabled)
+            {
+                return;
+            }
+
+            behaviour.enabled = false;
+            disabledBehaviours.Add(behaviour);
+        }
+
+        private static NativeMapBinding? ReadBinding(GUI_Map nativeMap)
+        {
+            RectTransform? mapArea = nativeMap.MapArea;
+            if (mapArea == null)
+            {
+                return null;
+            }
+
+            // MapArea is Drova's marker container. Its parent Image or RawImage is
+            // the terrain artwork; children are markers and must never be copied.
+            Image? parentImage = mapArea.parent?.GetComponent<Image>();
+            if (parentImage?.sprite != null)
+            {
+                return CreateSpriteBinding(nativeMap, parentImage, mapArea);
+            }
+
+            Image? mapAreaImage = mapArea.GetComponent<Image>();
+            if (mapAreaImage?.sprite != null)
+            {
+                return CreateSpriteBinding(nativeMap, mapAreaImage, mapArea);
+            }
+
+            RawImage? parentRawImage = mapArea.parent?.GetComponent<RawImage>();
+            if (parentRawImage?.texture != null)
+            {
+                return CreateTextureBinding(nativeMap, parentRawImage, mapArea);
+            }
+
+            RawImage? mapAreaRawImage = mapArea.GetComponent<RawImage>();
+            if (mapAreaRawImage?.texture != null)
+            {
+                return CreateTextureBinding(nativeMap, mapAreaRawImage, mapArea);
+            }
+
+            return null;
+        }
+
+        private static NativeMapBinding CreateSpriteBinding(
+            GUI_Map nativeMap,
+            Image image,
+            RectTransform mapArea)
+        {
+            MapSurface surface = MapSurface.FromSprite(
+                image.sprite!,
+                image.color,
+                GetAspectRatio(image.rectTransform, image.sprite.texture),
+                CaptureCalibration(image.rectTransform, mapArea));
+            return new NativeMapBinding(nativeMap, image.rectTransform, surface);
+        }
+
+        private static NativeMapBinding CreateTextureBinding(
+            GUI_Map nativeMap,
+            RawImage rawImage,
+            RectTransform mapArea)
+        {
+            MapSurface surface = MapSurface.FromTexture(
+                rawImage.texture!,
+                rawImage.color,
+                GetAspectRatio(rawImage.rectTransform, rawImage.texture),
+                CaptureCalibration(rawImage.rectTransform, mapArea));
+            return new NativeMapBinding(nativeMap, rawImage.rectTransform, surface);
+        }
+
+        private static MapCoordinateCalibration CaptureCalibration(
+            RectTransform visualRectTransform,
+            RectTransform mapArea)
+        {
+            Rect visualRect = visualRectTransform.rect;
+            Rect mapAreaRect = mapArea.rect;
+            if (visualRect.width <= 0f || visualRect.height <= 0f
+                || mapAreaRect.width <= 0f || mapAreaRect.height <= 0f)
+            {
+                return MapCoordinateCalibration.UnitSquare;
+            }
+
+            Vector3 areaMinInVisual = visualRectTransform.InverseTransformPoint(
+                mapArea.TransformPoint(new Vector3(mapAreaRect.xMin, mapAreaRect.yMin, 0f)));
+            Vector3 areaMaxInVisual = visualRectTransform.InverseTransformPoint(
+                mapArea.TransformPoint(new Vector3(mapAreaRect.xMax, mapAreaRect.yMax, 0f)));
+
+            Vector2 visualMin = visualRect.min;
+            Vector2 origin = new(
+                (areaMinInVisual.x - visualMin.x) / visualRect.width,
+                (areaMinInVisual.y - visualMin.y) / visualRect.height);
+            Vector2 size = new(
+                (areaMaxInVisual.x - areaMinInVisual.x) / visualRect.width,
+                (areaMaxInVisual.y - areaMinInVisual.y) / visualRect.height);
+            return new MapCoordinateCalibration(origin, size);
+        }
+
+        private static float GetAspectRatio(RectTransform rectTransform, Texture texture)
+        {
+            if (rectTransform.rect.height > 0f && rectTransform.rect.width > 0f)
+            {
+                return rectTransform.rect.width / rectTransform.rect.height;
+            }
+
+            return texture.height > 0 ? (float)texture.width / texture.height : 1f;
+        }
+
+        private sealed class NativeMapBinding
+        {
+            private readonly GUI_Map _map;
+            private readonly RectTransform _graphic;
+
+            internal NativeMapBinding(GUI_Map map, RectTransform graphic, MapSurface surface)
+            {
+                _map = map;
+                _graphic = graphic;
+                Surface = surface;
+            }
+
+            internal MapSurface Surface { get; }
+            internal bool IsAlive => _map && _graphic;
         }
     }
 }

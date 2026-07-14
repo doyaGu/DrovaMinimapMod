@@ -8,26 +8,53 @@ namespace DrovaMinimapMod
     internal sealed class MinimapController
     {
         private readonly List<Region> _activeRegions = [];
-        private readonly MainWorldMapResolver _mapResolver = new();
+        private readonly PlayerPositionMapResolver _mapResolver = new();
         private readonly NativeMapPresentation _nativeMapPresentation = new();
         private Actor? _player;
         private AreaNameSystem? _areaNameSystem;
         private MinimapView? _view;
+        private bool _mapPresentationSuspended;
+        private bool _areaLifecycleSubscribed;
+
+        internal void Initialize()
+        {
+            if (_areaLifecycleSubscribed)
+            {
+                return;
+            }
+
+            AreaNameSystem.OnInstanceChanged += OnAreaNameSystemChanged;
+            _areaLifecycleSubscribed = true;
+            AttachAreaNameSystem(AreaNameSystem.Instance);
+        }
 
         internal void OnPlayerFound(Actor player)
         {
             _player = player;
             _activeRegions.Clear();
             _nativeMapPresentation.Reset();
+            _mapPresentationSuspended = false;
             _view?.Dispose();
             _view = null;
-            RefreshAreaSubscription();
+            RebuildAreaState();
         }
 
-        internal void RefreshAreaSubscription()
+        internal void OnSceneLoaded()
         {
-            AreaNameSystem? current = AreaNameSystem.Instance;
-            if (ReferenceEquals(_areaNameSystem, current))
+            _nativeMapPresentation.Reset();
+            _mapPresentationSuspended = false;
+            _view?.Dispose();
+            _view = null;
+        }
+
+        private void OnAreaNameSystemChanged(AreaNameSystem? areaNameSystem)
+        {
+            AttachAreaNameSystem(areaNameSystem);
+        }
+
+        private void AttachAreaNameSystem(AreaNameSystem? areaNameSystem)
+        {
+            if (ReferenceEquals(_areaNameSystem, areaNameSystem))
             {
                 return;
             }
@@ -37,17 +64,17 @@ namespace DrovaMinimapMod
                 _areaNameSystem.OnRegionChanged -= OnRegionChanged;
             }
 
-            _areaNameSystem = current;
+            _areaNameSystem = areaNameSystem;
             if (_areaNameSystem != null)
             {
                 _areaNameSystem.OnRegionChanged += OnRegionChanged;
             }
+
+            RebuildAreaState();
         }
 
         internal void Tick(MinimapPreferences preferences)
         {
-            RefreshAreaSubscription();
-
             if (_player == null || !_player)
             {
                 HideView();
@@ -84,17 +111,19 @@ namespace DrovaMinimapMod
                 _view = new MinimapView(guiHandler.GUIRoot);
             }
 
-            Vector3 position = _player.transform.position;
-            Vector2 playerWorldPosition = new(position.x, position.y);
+            // Match GUI_MapPlayerMarker: the native full-map marker is placed
+            // from the entity's feet position, not the actor transform pivot.
+            Vector2 playerWorldPosition = _player.GetFeetPosition();
             var mapData = _mapResolver.TryResolve(playerWorldPosition);
             if (mapData == null)
             {
-                _view.SetVisible(false);
+                SuspendMapPresentation();
                 return;
             }
 
+            _mapPresentationSuspended = false;
             Vector2 lookDirection = _player.GetLookModule()?.CurrentLookDir ?? Vector2.up;
-            var mapPresentation = _nativeMapPresentation.Refresh(mapData, playerWorldPosition);
+            var mapPresentation = _nativeMapPresentation.Resolve(mapData, playerWorldPosition);
             _view.Render(new MinimapFrame(
                 mapData,
                 mapPresentation,
@@ -106,6 +135,12 @@ namespace DrovaMinimapMod
 
         internal void Dispose()
         {
+            if (_areaLifecycleSubscribed)
+            {
+                AreaNameSystem.OnInstanceChanged -= OnAreaNameSystemChanged;
+                _areaLifecycleSubscribed = false;
+            }
+
             if (_areaNameSystem != null)
             {
                 _areaNameSystem.OnRegionChanged -= OnRegionChanged;
@@ -115,6 +150,7 @@ namespace DrovaMinimapMod
             _view?.Dispose();
             _view = null;
             _nativeMapPresentation.Reset();
+            _mapPresentationSuspended = false;
             MinimapView.ReleaseSharedResources();
             _player = null;
             _activeRegions.Clear();
@@ -126,10 +162,28 @@ namespace DrovaMinimapMod
             {
                 _activeRegions.Remove(region);
                 _activeRegions.Add(region);
+            }
+            else
+            {
+                _activeRegions.Remove(region);
+            }
+
+        }
+
+        private void RebuildAreaState()
+        {
+            _activeRegions.Clear();
+            if (_areaNameSystem == null)
+            {
                 return;
             }
 
-            _activeRegions.Remove(region);
+            foreach (Region region in _areaNameSystem.GetCurrentRegions())
+            {
+                _activeRegions.Remove(region);
+                _activeRegions.Add(region);
+            }
+
         }
 
         private string GetRegionLabel()
@@ -158,6 +212,17 @@ namespace DrovaMinimapMod
         private void HideView()
         {
             _view?.SetVisible(false);
+        }
+
+        private void SuspendMapPresentation()
+        {
+            if (!_mapPresentationSuspended)
+            {
+                _nativeMapPresentation.Reset();
+                _mapPresentationSuspended = true;
+            }
+
+            HideView();
         }
 
     }
