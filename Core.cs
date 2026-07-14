@@ -3,7 +3,7 @@ using Drova_Modding_API.GlobalFields;
 using Il2CppDrova;
 using MelonLoader;
 
-[assembly: MelonInfo(typeof(DrovaMinimapMod.Core), "Drova Minimap", DrovaMinimapMod.BuildVersion.Value, "kakut")]
+[assembly: MelonInfo(typeof(DrovaMinimapMod.Core), "Drova Minimap", DrovaMinimapMod.BuildVersion.Value, "doyaGu")]
 [assembly: MelonGame("Just2D", "Drova")]
 [assembly: MelonAdditionalDependencies("Drova_Modding_API")]
 
