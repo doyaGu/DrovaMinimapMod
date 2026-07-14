@@ -17,6 +17,11 @@ $resolvedGameRoot = (Resolve-Path $GameRoot).Path
 $projectPath = Join-Path $projectRoot 'DrovaMinimapMod.csproj'
 $readmePath = Join-Path $projectRoot 'README.md'
 $changelogPath = Join-Path $projectRoot 'CHANGELOG.md'
+$licensePath = Join-Path $projectRoot 'LICENSE'
+
+if (-not (Test-Path -LiteralPath $licensePath)) {
+    throw "Release packaging requires a LICENSE file: $licensePath"
+}
 
 [xml]$projectXml = Get-Content -Raw $projectPath
 $version = $projectXml.Project.PropertyGroup.Version | Select-Object -First 1
@@ -47,5 +52,5 @@ $distPath = Join-Path $projectRoot 'dist'
 New-Item -ItemType Directory -Path $distPath -Force | Out-Null
 $archivePath = Join-Path $distPath "DrovaMinimapMod-$version.zip"
 
-Compress-Archive -LiteralPath @($dllPath, $readmePath, $changelogPath) -DestinationPath $archivePath -Force
+Compress-Archive -LiteralPath @($dllPath, $readmePath, $changelogPath, $licensePath) -DestinationPath $archivePath -Force
 Write-Output "Created $archivePath"
