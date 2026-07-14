@@ -22,13 +22,13 @@ Validated against the bundled Drova Modding API **0.5.2**. The mod reads Drova's
 
 ## Requirements
 
-- Drova with [MelonLoader](https://github.com/LavaGang/MelonLoader) installed.
-- [Drova Modding API](https://github.com/doyaGu/Drova-Modding-API) `0.5.2` installed as `Drova_Modding_API.dll` in the game's `Mods` directory.
+- Drova with [MelonLoader](https://melonwiki.xyz) installed.
+- [Drova Modding API](https://github.com/Drova-Modding/Drova-Modding-API) `0.5.2` installed as `Drova_Modding_API.dll` in the game's `Mods` directory.
 
 ## Installation
 
-1. Install [MelonLoader](https://github.com/LavaGang/MelonLoader).
-2. Install [Drova Modding API](https://github.com/doyaGu/Drova-Modding-API) `0.5.2` into the game's `Mods` directory.
+1. Install [MelonLoader](https://melonwiki.xyz).
+2. Install [Drova Modding API](https://github.com/Drova-Modding/Drova-Modding-API) `0.5.2` into the game's `Mods` directory.
 3. Copy `DrovaMinimapMod.dll` into Drova's `Mods` directory.
 4. Start the game. Configure the minimap in the shared Modding settings page.
 
