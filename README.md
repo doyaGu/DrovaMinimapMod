@@ -6,7 +6,7 @@
 
 Current release: **1.0.0**
 
-Validated against the bundled Drova Modding API **0.5.1**. The mod reads Drova's per-definition map UI directly, so verify a new game build with [TESTING.md](TESTING.md) before publishing it as supported.
+Validated against the bundled Drova Modding API **0.5.2**. The mod reads Drova's per-definition map UI directly, so verify a new game build with [TESTING.md](TESTING.md) before publishing it as supported.
 
 ## Features
 
@@ -14,12 +14,12 @@ Validated against the bundled Drova Modding API **0.5.1**. The mod reads Drova's
 - Shows native map and NPC markers only when they approach the minimap viewport.
 - Hides during menus, modal windows, HUD-hidden states, and whenever no enabled map is valid for the player's current scene and position.
 - Includes settings for enablement, automatic area-map switching, size, zoom, and opacity.
-- Uses Drova's localization system; Simplified and Traditional Chinese are translated, with English fallback for other supported languages.
+- Uses Drova's localization system with shipped translations for every language directory supported by Drova.
 
 ## Requirements
 
 - Drova with MelonLoader installed.
-- `Drova_Modding_API.dll` version 0.5.1 installed in the game's `Mods` directory.
+- `Drova_Modding_API.dll` version 0.5.2 installed in the game's `Mods` directory.
 
 ## Installation
 
