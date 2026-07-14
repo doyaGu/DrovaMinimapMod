@@ -31,7 +31,7 @@ Validated against the bundled Drova Modding API **0.5.1**. The mod reads Drova's
 
 Map selection mirrors the native player-marker eligibility: a map must be enabled, valid on the active scene, and contain the player's feet position. By default, the minimap chooses the smallest matching local map. Disable **Switch to area maps** to retain the best matching world map instead. When only overlapping world-map variants remain, it prefers `World_Detailed`, then the rough world map, while supplemental overlays such as `World_Shrines` are never selected as terrain. This is a minimap presentation rule; it never reads or changes Drova's saved full-map tab (`ActiveMapGuid`).
 
-The visual is read from the matching original `GUI_Map` through the map panel's definition-to-map dictionary, then from that map's `MapArea`. The hidden map panel is initialized once without opening or changing the full-map UI. If the original visual is unavailable, the mod shows the radar fallback.
+The visual is read from the matching original `GUI_Map` through the map panel's definition-to-map dictionary, then from that map's `MapArea`. The hidden map panel is initialized once without opening or changing the full-map UI. Cached artwork is re-read if the original UI replaces its sprite, texture, or tint. If the original visual is unavailable, the mod shows the radar fallback.
 
 ## Building and releasing
 

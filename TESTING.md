@@ -3,7 +3,7 @@
 Run this checklist before releasing a new DLL.
 
 1. Start at the title screen. Confirm the log contains no `DrovaMinimap` exception and the minimap's settings are present after opening the shared Modding settings page.
-2. Start a save on the main world without opening the original map. Confirm that the minimap immediately shows the correct map area and player position, never another UI background.
+2. Start a save on the main world without opening the original map. Confirm that the minimap immediately shows the correct map area and player position, never another UI background. If the original UI replaces map artwork after the save finishes loading, confirm the minimap adopts the replacement without opening the original map.
 3. Walk in several directions, then open the original map. Confirm the player arrow and native markers match it.
 4. Teleport, reload a save, and change scenes. Confirm the minimap rebinds and does not freeze, drift, or leave duplicate UI.
 5. Enter a nested map area, then return to the surrounding world. Confirm the most specific enabled map is selected in the nested area and the surrounding map returns immediately on exit. Disable **Switch to area maps** and confirm the matching world map remains selected inside the nested area. Enter an area with no enabled, active-scene map definition and confirm the minimap hides.

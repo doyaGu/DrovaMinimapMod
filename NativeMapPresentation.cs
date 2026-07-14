@@ -231,30 +231,52 @@ namespace DrovaMinimapMod
             return null;
         }
 
-        private static NativeMapBinding CreateSpriteBinding(
+        private static bool HasUsableLayout(
+            RectTransform visualRectTransform,
+            RectTransform mapArea)
+        {
+            Rect visualRect = visualRectTransform.rect;
+            Rect mapAreaRect = mapArea.rect;
+            return visualRect.width > 0f
+                   && visualRect.height > 0f
+                   && mapAreaRect.width > 0f
+                   && mapAreaRect.height > 0f;
+        }
+
+        private static NativeMapBinding? CreateSpriteBinding(
             GUI_Map nativeMap,
             Image image,
             RectTransform mapArea)
         {
+            if (!HasUsableLayout(image.rectTransform, mapArea))
+            {
+                return null;
+            }
+
             MapSurface surface = MapSurface.FromSprite(
                 image.sprite!,
                 image.color,
                 GetAspectRatio(image.rectTransform, image.sprite.texture),
                 CaptureCalibration(image.rectTransform, mapArea));
-            return new NativeMapBinding(nativeMap, image.rectTransform, surface);
+            return new NativeMapBinding(nativeMap, image, mapArea, surface);
         }
 
-        private static NativeMapBinding CreateTextureBinding(
+        private static NativeMapBinding? CreateTextureBinding(
             GUI_Map nativeMap,
             RawImage rawImage,
             RectTransform mapArea)
         {
+            if (!HasUsableLayout(rawImage.rectTransform, mapArea))
+            {
+                return null;
+            }
+
             MapSurface surface = MapSurface.FromTexture(
                 rawImage.texture!,
                 rawImage.color,
                 GetAspectRatio(rawImage.rectTransform, rawImage.texture),
                 CaptureCalibration(rawImage.rectTransform, mapArea));
-            return new NativeMapBinding(nativeMap, rawImage.rectTransform, surface);
+            return new NativeMapBinding(nativeMap, rawImage, mapArea, surface);
         }
 
         private static MapCoordinateCalibration CaptureCalibration(
@@ -297,17 +319,61 @@ namespace DrovaMinimapMod
         private sealed class NativeMapBinding
         {
             private readonly GUI_Map _map;
-            private readonly RectTransform _graphic;
+            private readonly RectTransform _mapArea;
+            private readonly Image? _image;
+            private readonly RawImage? _rawImage;
+            private readonly Sprite? _sprite;
+            private readonly Texture? _texture;
+            private readonly Color _color;
 
-            internal NativeMapBinding(GUI_Map map, RectTransform graphic, MapSurface surface)
+            internal NativeMapBinding(
+                GUI_Map map,
+                Image image,
+                RectTransform mapArea,
+                MapSurface surface)
             {
                 _map = map;
-                _graphic = graphic;
+                _mapArea = mapArea;
+                _image = image;
+                _sprite = image.sprite;
+                _color = image.color;
+                Surface = surface;
+            }
+
+            internal NativeMapBinding(
+                GUI_Map map,
+                RawImage rawImage,
+                RectTransform mapArea,
+                MapSurface surface)
+            {
+                _map = map;
+                _mapArea = mapArea;
+                _rawImage = rawImage;
+                _texture = rawImage.texture;
+                _color = rawImage.color;
                 Surface = surface;
             }
 
             internal MapSurface Surface { get; }
-            internal bool IsAlive => _map && _graphic;
+            internal bool IsAlive => _map
+                                     && _mapArea
+                                     && _map.MapArea == _mapArea
+                                     && IsSourceCurrent();
+
+            private bool IsSourceCurrent()
+            {
+                if (_image != null)
+                {
+                    return _image
+                           && _image.sprite == _sprite
+                           && _image.color == _color;
+                }
+
+                return _rawImage != null
+                       && _rawImage
+                       && _rawImage.texture == _texture
+                       && _rawImage.color == _color;
+            }
         }
     }
 }
